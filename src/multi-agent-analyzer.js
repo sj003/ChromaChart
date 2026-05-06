@@ -34,6 +34,10 @@ export class MultiAgentAnalyzer {
     };
 
     try {
+      // Warm-up: verify we can actually create a session (not just check capabilities)
+      const testSession = await window.ai.languageModel.create({ systemPrompt: 'test' });
+      testSession.destroy();
+
       // ── Pass 1: Data Modeler ──────────────────────────────────────────────
       log('data-modeler', 'Data Modeler', 'Profiling dataset and identifying relevant patterns…');
       const dataProfile = await this._runDataModeler(topic);
@@ -87,11 +91,15 @@ export class MultiAgentAnalyzer {
       };
 
     } catch (err) {
-      console.warn('Multi-agent pipeline failed, falling back to statistical analysis:', err.message);
-      const result = await this._fallback.analyze(topic, {
+      const reason = err?.message || String(err);
+      console.warn('[ChromaChart] Multi-agent pipeline failed:', reason);
+      // Show the actual error in the agent log so the user can see what happened
+      onProgress({ agent: null, message: `AI pipeline error: ${reason} — switching to statistical analysis`, step: 0, total: 1 });
+
+      const fallbackResult = await this._fallback.analyze(topic, {
         onProgress: msg => onProgress({ agent: null, message: msg, step: 0, total: 1 })
       });
-      return { ...result, agentLog };
+      return { ...fallbackResult, agentLog, aiPowered: false };
     }
   }
 
@@ -99,44 +107,52 @@ export class MultiAgentAnalyzer {
 
   async _runDataModeler(topic) {
     const schema    = this.engine.schema;
-    const schemaStr = Object.entries(schema).map(([k, v]) => `"${k}": ${v.type}`).join(', ');
-    const samples   = JSON.stringify(this.engine.getSampleRows(4), null, 2);
 
-    // Pre-compute a few stats to give the model real numbers to work with
+    // Keep prompt small for Gemini Nano's limited context window.
+    // Exclude high-cardinality / free-text fields from samples.
+    const skipInSamples = new Set(
+      Object.entries(schema)
+        .filter(([, v]) => v.cardinality > 200 || v.type === 'string' && v.sample.some(s => s.length > 80))
+        .map(([k]) => k)
+    );
+
+    const schemaStr = Object.entries(schema)
+      .map(([k, v]) => `"${k}": ${v.type}(${v.cardinality} unique)`)
+      .join(', ');
+
+    // Compact field samples — only low-cardinality fields, values truncated
+    const fieldSamples = Object.entries(schema)
+      .filter(([k, v]) => !skipInSamples.has(k) && v.cardinality <= 50)
+      .map(([k, v]) => `${k}: [${v.sample.slice(0, 3).map(s => String(s).slice(0, 30)).join(', ')}]`)
+      .join('\n');
+
     const resolved  = this._resolve(topic);
     const matchRows = resolved
       ? this.engine.query({ x: { field: resolved.field }, y: { aggregate: 'count' }, filter: { [resolved.field]: resolved.value } }).rowCount
       : this.engine.rowCount;
 
-    const fieldSamples = Object.entries(schema)
-      .map(([k, v]) => `${k}: [${v.sample.slice(0, 4).join(', ')}]`)
-      .join('\n');
-
     const session = await window.ai.languageModel.create({
-      systemPrompt: `You are a data modeling expert. Your sole job is to profile datasets and identify patterns, data quality, and relevant fields for a given analysis topic. Always respond with valid JSON only — no markdown, no explanation.`
+      systemPrompt: `You are a data modeling expert. Profile datasets to identify patterns and relevant fields. Respond with valid JSON only — no markdown, no explanation.`
     });
 
     try {
-      const prompt = `Dataset schema: { ${schemaStr} }
+      const prompt = `Schema: { ${schemaStr} }
 Total rows: ${this.engine.rowCount.toLocaleString()}
-Rows matching topic "${topic}": ${matchRows.toLocaleString()}
-Sample field values:
+Rows matching "${topic}": ${matchRows.toLocaleString()}
+Field samples:
 ${fieldSamples}
-Sample rows: ${samples}
 
-Profile this dataset for the topic "${topic}". Return JSON:
+Profile for topic "${topic}". Return JSON:
 {
-  "topicMatch": "exact matched value in data or null",
-  "topicField": "the field name that contains the topic",
-  "relevantFields": ["field1", "field2"],
-  "temporalField": "date field name or null",
-  "geoField": "borough/area field or null",
-  "statusField": "status field or null",
-  "agencyField": "agency field or null",
+  "topicMatch": "exact matched value or null",
+  "topicField": "field name containing the topic",
+  "temporalField": "date/year field or null",
+  "geoField": "location/country/region field or null",
+  "statusField": "status/state field or null",
+  "agencyField": "agency/department field or null",
   "matchCount": ${matchRows},
-  "dataQuality": "good | fair | sparse",
-  "keyPatterns": ["1-sentence pattern", "another pattern"],
-  "_summary": "1 sentence summary of what the modeler found"
+  "dataQuality": "good|fair|sparse",
+  "_summary": "1 sentence summary"
 }`;
 
       const raw = await session.prompt(prompt);
@@ -149,12 +165,22 @@ Profile this dataset for the topic "${topic}". Return JSON:
   }
 
   async _runVizExpert(topic, profile) {
-    const schema = this.engine.schema;
+    const schema    = this.engine.schema;
     const fieldNames = Object.keys(schema).join(', ');
-    const profileStr = JSON.stringify(profile, null, 2);
+
+    // Send only the compact profile fields the viz expert actually needs
+    const compactProfile = {
+      topicMatch:    profile.topicMatch,
+      topicField:    profile.topicField,
+      temporalField: profile.temporalField,
+      geoField:      profile.geoField,
+      statusField:   profile.statusField,
+      agencyField:   profile.agencyField,
+      matchCount:    profile.matchCount,
+    };
 
     const session = await window.ai.languageModel.create({
-      systemPrompt: `You are a data visualization expert. You know when to use line vs bar charts, when pie charts are appropriate, and how to design effective multi-chart dashboards. You only recommend charts that can be built from available fields. Always respond with valid JSON only.`
+      systemPrompt: `You are a data visualization expert. Recommend optimal chart types for datasets. Always respond with valid JSON only.`
     });
 
     try {
@@ -162,36 +188,29 @@ Profile this dataset for the topic "${topic}". Return JSON:
         ? `{ "${profile.topicField}": "${profile.topicMatch}" }`
         : '{}';
 
-      const prompt = `Data profile for topic "${topic}":
-${profileStr}
+      const prompt = `Topic: "${topic}"
+Profile: ${JSON.stringify(compactProfile)}
+Available fields (use EXACT names): ${fieldNames}
 
-Available fields: ${fieldNames}
-
-Design exactly 4 chart specifications for a dashboard about "${topic}".
-Prioritize the most insightful charts. Each chart must filter to the topic.
-Return a JSON array:
+Return a JSON array of exactly 4 chart specs:
 [{
   "dimension": "short title",
-  "chartType": "bar | line | pie",
-  "reason": "1 sentence: why this chart type for this data",
+  "chartType": "bar|line|pie",
+  "reason": "why this chart type",
   "priority": 1,
   "spec": {
-    "type": "bar | line | pie",
+    "type": "bar|line|pie",
     "title": "chart title",
-    "x": { "field": "EXACT field name from: ${fieldNames}", "label": "label", "granularity": "month (only if date field)" },
+    "x": { "field": "EXACT field name", "label": "label", "granularity": "month" },
     "y": { "field": null, "aggregate": "count", "label": "Count" },
     "filter": ${filter},
     "sort": "desc",
-    "limit": null
+    "limit": 10
   }
 }]
 
-Rules:
-- Use the temporal field for a line chart with granularity "month"
-- Use the geo field for a bar chart showing geographic distribution
-- Use the status field for a pie chart
-- The 4th chart should reveal something non-obvious (agency, time-of-week pattern, etc.)
-- Only use field names that exist: ${fieldNames}`;
+Rules: temporal→line(granularity:month), geo→bar, status/type→pie, 4th→most insightful remaining field.
+Only use field names from: ${fieldNames}`;
 
       const raw  = await session.prompt(prompt);
       const json = raw.match(/\[[\s\S]*\]/)?.[0];
