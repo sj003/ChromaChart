@@ -151,43 +151,79 @@ Return a JSON array of strings (one insight per dimension, same order).`;
 
   _buildFallbackPlan(resolved) {
     const s = this.engine.schema;
-    const dateField    = Object.entries(s).find(([, v]) => v.type === 'date')?.[0];
-    const boroughField = Object.keys(s).find(k => /borough|area|district|city/.test(k));
-    const agencyField  = Object.keys(s).find(k => /agency/.test(k));
-    const statusField  = Object.keys(s).find(k => /status/.test(k));
-
     const baseFilter = resolved ? { [resolved.field]: resolved.value } : {};
-    const label = resolved?.value || 'All complaints';
+    const label = resolved?.value || 'All records';
+
+    // Fields we've already used — avoid repeating the same axis
+    const used = new Set([resolved?.field].filter(Boolean));
+
+    // Skip fields that are IDs, free-text, or the subject field itself
+    const skip = k => used.has(k) ||
+      /^id$|_id$|^show_id|description|desc$|title|^cast$|^director/.test(k.toLowerCase());
+
+    // 1. Date/time field: prefer schema-typed date, fall back by name
+    const dateField = Object.entries(s).find(([k, v]) => !skip(k) && v.type === 'date')?.[0]
+                   || Object.keys(s).find(k => !skip(k) && /date|added|created|updated/.test(k));
+
+    // 2. Numeric year field (e.g. release_year) as fallback time axis
+    const yearField = !dateField
+      ? Object.entries(s).find(([k, v]) => !skip(k) && v.type === 'number' && /year/.test(k))?.[0]
+      : null;
+
+    // 3. Low-cardinality strings (2–15 unique) → pie charts
+    const lowCard = Object.entries(s)
+      .filter(([k, v]) => !skip(k) && v.type === 'string' && v.cardinality >= 2 && v.cardinality <= 15)
+      .sort((a, b) => a[1].cardinality - b[1].cardinality)
+      .map(([k]) => k);
+
+    // 4. Medium-cardinality strings (6–200 unique) → bar charts
+    const midCard = Object.entries(s)
+      .filter(([k, v]) => !skip(k) && v.type === 'string' && v.cardinality > 5 && v.cardinality <= 200)
+      .sort((a, b) => a[1].cardinality - b[1].cardinality)
+      .map(([k]) => k);
 
     const plans = [];
+    const label_ = k => k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-    if (dateField) plans.push({
-      title: 'Monthly Trend',
-      question: 'How has volume changed over time?',
-      spec: { type: 'line', title: `Monthly trend — ${label}`, x: { field: dateField, label: 'Month', granularity: 'month' }, y: { field: null, aggregate: 'count', label: 'Count' }, filter: baseFilter, sort: null, limit: null },
-      result: null, insight: ''
-    });
+    // Time trend
+    if (dateField) {
+      used.add(dateField);
+      plans.push({ title: 'Trend Over Time', question: 'How has volume changed over time?',
+        spec: { type: 'line', title: `${label} — trend over time`,
+          x: { field: dateField, label: 'Month', granularity: 'month' },
+          y: { field: null, aggregate: 'count', label: 'Count' },
+          filter: baseFilter, sort: null, limit: null }, result: null, insight: '' });
+    } else if (yearField) {
+      used.add(yearField);
+      plans.push({ title: 'By Year', question: 'How is volume distributed across years?',
+        spec: { type: 'line', title: `${label} — by year`,
+          x: { field: yearField, label: 'Year' },
+          y: { field: null, aggregate: 'count', label: 'Count' },
+          filter: baseFilter, sort: 'asc', limit: null }, result: null, insight: '' });
+    }
 
-    if (boroughField) plans.push({
-      title: 'By Borough',
-      question: 'Which areas report the most?',
-      spec: { type: 'bar', title: `${label} — by borough`, x: { field: boroughField, label: 'Borough' }, y: { field: null, aggregate: 'count', label: 'Count' }, filter: baseFilter, sort: 'desc', limit: null },
-      result: null, insight: ''
-    });
+    // Pie from lowest-cardinality field
+    const pieField = lowCard.find(k => !used.has(k));
+    if (pieField) {
+      used.add(pieField);
+      plans.push({ title: `By ${label_(pieField)}`, question: 'What is the distribution?',
+        spec: { type: 'pie', title: `${label} — by ${label_(pieField)}`,
+          x: { field: pieField, label: label_(pieField) },
+          y: { field: null, aggregate: 'count', label: 'Count' },
+          filter: baseFilter, sort: 'desc', limit: null }, result: null, insight: '' });
+    }
 
-    if (statusField) plans.push({
-      title: 'Resolution Status',
-      question: 'What fraction are resolved?',
-      spec: { type: 'pie', title: `${label} — resolution status`, x: { field: statusField, label: 'Status' }, y: { field: null, aggregate: 'count', label: 'Count' }, filter: baseFilter, sort: 'desc', limit: null },
-      result: null, insight: ''
-    });
-
-    if (agencyField) plans.push({
-      title: 'Handling Agencies',
-      question: 'Which agencies own these complaints?',
-      spec: { type: 'bar', title: `${label} — by agency`, x: { field: agencyField, label: 'Agency' }, y: { field: null, aggregate: 'count', label: 'Count' }, filter: baseFilter, sort: 'desc', limit: 8 },
-      result: null, insight: ''
-    });
+    // Fill remaining slots with bar charts from mid-cardinality fields
+    for (const field of [...lowCard, ...midCard]) {
+      if (plans.length >= 4) break;
+      if (used.has(field)) continue;
+      used.add(field);
+      plans.push({ title: `Top ${label_(field)}`, question: `Which ${label_(field)} values dominate?`,
+        spec: { type: 'bar', title: `${label} — top ${label_(field)}`,
+          x: { field, label: label_(field) },
+          y: { field: null, aggregate: 'count', label: 'Count' },
+          filter: baseFilter, sort: 'desc', limit: 10 }, result: null, insight: '' });
+    }
 
     return plans;
   }

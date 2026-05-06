@@ -53,7 +53,11 @@ export class DataEngine {
       const values = sample.map(r => r[field]).filter(v => v !== '' && v != null);
       const total = values.length || 1;
       const numericCount = values.filter(v => !isNaN(v) && v.trim() !== '').length;
-      const dateCount = values.filter(v => /\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}/.test(v)).length;
+      const dateCount = values.filter(v =>
+        /\d{4}-\d{2}-\d{2}/.test(v) ||                          // ISO: 2020-08-14
+        /\d{1,2}\/\d{1,2}\/\d{4}/.test(v) ||                   // US:  8/14/2020
+        /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\S*\s+\d{1,2},?\s+\d{4}/i.test(v) // "August 14, 2020"
+      ).length;
 
       let type = 'string';
       if (numericCount / total > 0.85) type = 'number';
