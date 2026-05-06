@@ -2,7 +2,7 @@ import { DataEngine }      from './data-engine.js';
 import { PromptCompiler }  from './prompt-compiler.js';
 import { NLPParser }       from './nlp-parser.js';
 import { Renderer }        from './renderer.js';
-import { Analyzer }        from './analyzer.js';
+import { MultiAgentAnalyzer } from './multi-agent-analyzer.js';
 
 export class ChromaChart {
   constructor({ container, onLoad, onError } = {}) {
@@ -89,7 +89,7 @@ export class ChromaChart {
 
   async analyze(topic, options = {}) {
     if (!this._engine.rowCount) throw new Error('No data loaded.');
-    const analyzer = new Analyzer(this._engine);
+    const analyzer = new MultiAgentAnalyzer(this._engine);
     return analyzer.analyze(topic, options);
   }
 

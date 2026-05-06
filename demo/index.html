@@ -202,16 +202,53 @@
       background: #ede9fe; color: #5b21b6;
     }
 
-    /* Progress overlay */
+    /* Agent conversation panel */
     #analysis-progress {
       background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
-      padding: 20px; text-align: center; flex-shrink: 0;
+      padding: 14px 16px; flex-shrink: 0;
     }
-    .progress-steps { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-    .progress-step-icon { font-size: 24px; margin-bottom: 4px; }
-    #progress-text { font-size: 13px; color: var(--slate-6); }
-    .progress-bar-wrap { width: 240px; height: 4px; background: var(--slate-3); border-radius: 2px; margin-top: 8px; }
-    .progress-bar { height: 100%; background: var(--brand); border-radius: 2px; transition: width .4s ease; }
+    .agent-pipeline {
+      display: flex; align-items: center; gap: 0; margin-bottom: 12px;
+    }
+    .agent-node {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      flex: 1; opacity: .3; transition: opacity .3s;
+    }
+    .agent-node.active { opacity: 1; }
+    .agent-node.done   { opacity: .65; }
+    .agent-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 16px;
+      border: 2px solid var(--slate-3); background: var(--slate-1);
+      transition: border-color .3s, background .3s;
+    }
+    .agent-node.active .agent-avatar { border-color: var(--brand); background: var(--brand-lt); }
+    .agent-node.done   .agent-avatar { border-color: var(--green); background: #f0fdf4; }
+    .agent-name { font-size: 10px; font-weight: 600; color: var(--slate-6); text-align: center; }
+    .agent-arrow { font-size: 14px; color: var(--slate-3); flex-shrink: 0; margin: 0 -4px; padding-bottom: 16px; }
+
+    /* Agent message log */
+    #agent-log {
+      border-top: 1px solid var(--slate-3); padding-top: 10px;
+      max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+    }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 11px; line-height: 1.4; animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+    .log-badge {
+      font-size: 10px; font-weight: 700; padding: 1px 6px;
+      border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    }
+    .badge-data-modeler  { background: #dbeafe; color: #1e40af; }
+    .badge-viz-expert    { background: #fef9c3; color: #854d0e; }
+    .badge-orchestrator  { background: #ede9fe; color: #5b21b6; }
+    .badge-fallback      { background: var(--slate-2); color: var(--slate-6); }
+    .log-message { color: var(--slate-6); }
+
+    .progress-bar-wrap { height: 3px; background: var(--slate-3); border-radius: 2px; margin-top: 10px; }
+    .progress-bar { height: 100%; background: var(--brand); border-radius: 2px; transition: width .5s ease; }
 
     /* Analysis grid */
     #analysis-grid {
@@ -407,11 +444,26 @@
         <div id="ai-powered-tag" class="ai-powered-tag" style="display:none">✦ Gemini Nano</div>
       </div>
       <div id="analysis-progress" style="display:none">
-        <div class="progress-steps">
-          <div class="progress-step-icon">🤔</div>
-          <div id="progress-text">Starting analysis…</div>
-          <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:5%"></div></div>
+        <!-- Agent pipeline indicator -->
+        <div class="agent-pipeline">
+          <div class="agent-node" id="node-data-modeler">
+            <div class="agent-avatar">🔬</div>
+            <div class="agent-name">Data<br>Modeler</div>
+          </div>
+          <div class="agent-arrow">→</div>
+          <div class="agent-node" id="node-viz-expert">
+            <div class="agent-avatar">📊</div>
+            <div class="agent-name">Viz<br>Expert</div>
+          </div>
+          <div class="agent-arrow">→</div>
+          <div class="agent-node" id="node-orchestrator">
+            <div class="agent-avatar">🎯</div>
+            <div class="agent-name">Orches-<br>trator</div>
+          </div>
         </div>
+        <!-- Live message log -->
+        <div id="agent-log"></div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:4%"></div></div>
       </div>
       <div id="analysis-grid"></div>
     </div>
@@ -520,6 +572,46 @@
   }
 
   // ── Deep analysis ──────────────────────────────────────────────────────────
+
+  const AGENT_META = {
+    'data-modeler': { nodeId: 'node-data-modeler', badgeClass: 'badge-data-modeler', label: 'Data Modeler' },
+    'viz-expert':   { nodeId: 'node-viz-expert',   badgeClass: 'badge-viz-expert',   label: 'Viz Expert'   },
+    'orchestrator': { nodeId: 'node-orchestrator',  badgeClass: 'badge-orchestrator', label: 'Orchestrator' },
+  };
+
+  function resetAgentUI() {
+    Object.values(AGENT_META).forEach(({ nodeId }) => {
+      const n = document.getElementById(nodeId);
+      n.classList.remove('active', 'done');
+    });
+    document.getElementById('agent-log').innerHTML = '';
+    document.getElementById('progress-bar').style.width = '4%';
+  }
+
+  function appendAgentLog(agent, message) {
+    const meta = AGENT_META[agent] || { badgeClass: 'badge-fallback', label: agent || 'System' };
+    const log  = document.getElementById('agent-log');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `<span class="log-badge ${meta.badgeClass}">${meta.label}</span><span class="log-message">${message}</span>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function advanceAgentNode(agent) {
+    const meta = AGENT_META[agent];
+    if (!meta) return;
+    // Mark previous nodes as done
+    const order = ['data-modeler', 'viz-expert', 'orchestrator'];
+    const idx   = order.indexOf(agent);
+    order.slice(0, idx).forEach(a => {
+      const n = document.getElementById(AGENT_META[a].nodeId);
+      n.classList.remove('active');
+      n.classList.add('done');
+    });
+    document.getElementById(meta.nodeId).classList.add('active');
+  }
+
   async function runAnalysis(text) {
     showView('analysis');
     destroyAnalysisCharts();
@@ -528,16 +620,24 @@
     const progress = document.getElementById('analysis-progress');
     const summary  = document.getElementById('analysis-summary');
 
-    grid.innerHTML     = '';
-    summary.innerHTML  = 'Analyzing…';
+    grid.innerHTML    = '';
+    summary.innerHTML = 'Running multi-agent analysis…';
     progress.style.display = 'block';
     document.getElementById('ai-powered-tag').style.display = 'none';
+    resetAgentUI();
 
-    let progressPct = 10;
-    const onProgress = msg => {
-      document.getElementById('progress-text').textContent = msg;
-      progressPct = Math.min(progressPct + 18, 90);
-      document.getElementById('progress-bar').style.width = progressPct + '%';
+    // Pass counts drive the progress bar: 3 AI passes + 1 for rendering
+    const STEPS = 7;
+    let stepsDone = 0;
+    const tick = () => {
+      stepsDone++;
+      document.getElementById('progress-bar').style.width = Math.min(Math.round((stepsDone / STEPS) * 92), 92) + '%';
+    };
+
+    const onProgress = ({ agent, message }) => {
+      if (agent) advanceAgentNode(agent);
+      appendAgentLog(agent, message);
+      tick();
     };
 
     const btn = document.getElementById('query-submit');
@@ -547,11 +647,19 @@
     try {
       const result = await chart.analyze(text, { onProgress });
 
-      progress.style.display = 'none';
+      // Mark all nodes done
+      Object.values(AGENT_META).forEach(({ nodeId }) => {
+        const n = document.getElementById(nodeId);
+        n.classList.remove('active');
+        n.classList.add('done');
+      });
       document.getElementById('progress-bar').style.width = '100%';
 
-      // Summary header
-      summary.innerHTML = result.summary;
+      // Show headline + summary
+      summary.innerHTML = result.headline
+        ? `<strong>${result.headline}</strong><br><span style="font-weight:400">${result.summary}</span>`
+        : result.summary;
+
       if (result.aiPowered) {
         document.getElementById('ai-powered-tag').style.display = 'inline';
       }
