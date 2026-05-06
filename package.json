@@ -1,0 +1,12 @@
+{
+  "name": "chromachart",
+  "version": "0.1.0",
+  "description": "AI-powered browser-native charting library using the Chrome Prompt API",
+  "type": "module",
+  "main": "src/chromachart.js",
+  "scripts": {
+    "demo": "npx serve . -p 3000"
+  },
+  "keywords": ["chart", "visualization", "ai", "chrome-ai", "gemini-nano", "browser"],
+  "license": "MIT"
+}

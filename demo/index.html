@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChromaChart — AI-Powered Browser Charts</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:    #6366f1;
+      --brand-lt: #eef2ff;
+      --slate-1:  #f8fafc;
+      --slate-2:  #f1f5f9;
+      --slate-3:  #e2e8f0;
+      --slate-6:  #475569;
+      --slate-9:  #0f172a;
+      --green:    #22c55e;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --radius:   10px;
+      --shadow:   0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--slate-1);
+      color: var(--slate-9);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px;
+      height: 56px;
+      background: #fff;
+      border-bottom: 1px solid var(--slate-3);
+      flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      display: grid; place-items: center;
+    }
+    .logo-icon svg { width: 16px; height: 16px; }
+    .logo-name { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+    .logo-tag  { font-size: 11px; color: var(--slate-6); margin-left: 4px; font-weight: 400; }
+
+    #ai-badge {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 500;
+      padding: 3px 9px; border-radius: 20px;
+      background: var(--slate-2); color: var(--slate-6);
+    }
+    #ai-badge .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--slate-6); flex-shrink: 0;
+    }
+    #ai-badge.ai-on  { background: #dcfce7; color: #166534; }
+    #ai-badge.ai-on .dot { background: var(--green); }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 290px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid var(--slate-3);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .section { padding: 16px; border-bottom: 1px solid var(--slate-3); }
+    .section-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--slate-6); margin-bottom: 10px;
+    }
+
+    /* Data upload */
+    #drop-zone {
+      border: 2px dashed var(--slate-3);
+      border-radius: var(--radius);
+      padding: 20px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--brand);
+      background: var(--brand-lt);
+    }
+    #drop-zone p { font-size: 12px; color: var(--slate-6); line-height: 1.5; }
+    #drop-zone strong { color: var(--brand); }
+    #file-input { display: none; }
+
+    .or-row {
+      display: flex; align-items: center; gap: 8px;
+      margin: 8px 0; font-size: 11px; color: var(--slate-6);
+    }
+    .or-row::before, .or-row::after { content: ''; flex: 1; height: 1px; background: var(--slate-3); }
+
+    .btn-load-sample {
+      width: 100%; padding: 7px;
+      background: var(--slate-2); border: 1px solid var(--slate-3);
+      border-radius: 6px; font-size: 12px; cursor: pointer;
+      color: var(--slate-9); transition: background .15s;
+    }
+    .btn-load-sample:hover { background: var(--slate-3); }
+
+    /* Data info */
+    #data-info {
+      font-size: 12px; color: var(--slate-6); line-height: 1.8;
+      display: none;
+    }
+    #data-info .stat { display: flex; justify-content: space-between; }
+    #data-info .stat strong { color: var(--slate-9); font-weight: 600; }
+
+    /* Schema pills */
+    #schema-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .schema-pill {
+      font-size: 10px; padding: 2px 7px;
+      border-radius: 4px; font-weight: 500;
+    }
+    .pill-date   { background: #dbeafe; color: #1e40af; }
+    .pill-number { background: #dcfce7; color: #166534; }
+    .pill-string { background: #f3e8ff; color: #6b21a8; }
+
+    /* Preset queries */
+    .preset-btn {
+      display: block; width: 100%;
+      text-align: left; padding: 8px 10px;
+      background: var(--slate-1); border: 1px solid var(--slate-3);
+      border-radius: 7px; font-size: 12px; cursor: pointer;
+      color: var(--slate-9); margin-bottom: 6px;
+      transition: border-color .15s, background .15s;
+    }
+    .preset-btn:hover  { border-color: var(--brand); background: var(--brand-lt); }
+    .preset-btn .hint  { display: block; font-size: 10px; color: var(--slate-6); margin-top: 2px; }
+    .preset-icon { margin-right: 5px; }
+
+    /* ── Main panel ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 20px;
+      gap: 16px;
+    }
+
+    /* Chart card */
+    #chart-card {
+      flex: 1;
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chart-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--slate-3);
+      flex-shrink: 0;
+    }
+    #chart-meta { font-size: 12px; color: var(--slate-6); }
+    #chart-meta strong { color: var(--slate-9); }
+    #spec-tag {
+      font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace;
+      background: var(--slate-2); color: var(--slate-6);
+      padding: 3px 8px; border-radius: 4px;
+    }
+
+    #chart-wrap {
+      flex: 1;
+      padding: 20px;
+      position: relative;
+    }
+    #chart-wrap canvas { max-height: 100%; }
+
+    /* Empty state */
+    #empty-state {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; color: var(--slate-6);
+    }
+    #empty-state svg { opacity: .25; }
+    #empty-state p { font-size: 13px; }
+
+    /* Query bar */
+    #query-bar {
+      display: flex; gap: 10px;
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 10px 12px;
+      flex-shrink: 0;
+    }
+    #query-input {
+      flex: 1; border: none; outline: none;
+      font-size: 14px; font-family: inherit;
+      color: var(--slate-9);
+      background: transparent;
+    }
+    #query-input::placeholder { color: #94a3b8; }
+    #query-submit {
+      padding: 6px 16px;
+      background: var(--brand); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity .15s;
+      white-space: nowrap;
+    }
+    #query-submit:hover   { opacity: .9; }
+    #query-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--slate-9); color: #fff;
+      font-size: 13px; padding: 10px 16px;
+      border-radius: 8px; opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none; max-width: 320px;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+    #toast.err  { background: var(--red); }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* History */
+    #history-list { max-height: 140px; overflow-y: auto; }
+    .history-item {
+      font-size: 11px; color: var(--slate-6);
+      padding: 4px 0; cursor: pointer;
+      border-bottom: 1px solid var(--slate-3);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-item:hover { color: var(--brand); }
+    .history-empty { font-size: 11px; color: var(--slate-6); }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="8" width="3" height="7" rx="1" fill="white"/>
+        <rect x="6" y="5" width="3" height="10" rx="1" fill="white"/>
+        <rect x="11" y="2" width="3" height="13" rx="1" fill="white"/>
+      </svg>
+    </div>
+    <span class="logo-name">ChromaChart</span>
+    <span class="logo-tag">AI-powered browser charts</span>
+  </div>
+  <div id="ai-badge">
+    <span class="dot"></span>
+    <span id="ai-label">Checking AI…</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside>
+
+    <!-- Data source -->
+    <div class="section">
+      <div class="section-title">Data Source</div>
+      <div id="drop-zone">
+        <p>
+          <strong>Drop a CSV file</strong><br>
+          or click to browse
+        </p>
+      </div>
+      <input type="file" id="file-input" accept=".csv" />
+      <div class="or-row">or</div>
+      <button class="btn-load-sample" id="btn-sample">
+        Load NYC 311 sample (20 k rows)
+      </button>
+    </div>
+
+    <!-- Data info -->
+    <div class="section" id="info-section" style="display:none">
+      <div class="section-title">Dataset</div>
+      <div id="data-info">
+        <div class="stat"><span>Rows</span><strong id="stat-rows">—</strong></div>
+        <div class="stat"><span>Columns</span><strong id="stat-cols">—</strong></div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="section-title" style="margin-bottom:6px">Fields</div>
+        <div id="schema-list"></div>
+      </div>
+    </div>
+
+    <!-- Preset queries -->
+    <div class="section">
+      <div class="section-title">Preset Queries</div>
+
+      <button class="preset-btn" data-query="Top 10 complaint types">
+        <span class="preset-icon">🏆</span> Top 10 complaint types
+        <span class="hint">Bar chart · sorted by volume</span>
+      </button>
+
+      <button class="preset-btn" data-query="Top 5 complaint types">
+        <span class="preset-icon">📊</span> Top 5 complaint types
+        <span class="hint">Bar chart · fewer categories</span>
+      </button>
+
+      <button class="preset-btn" data-query="Daily count of issues">
+        <span class="preset-icon">📈</span> Daily count of issues
+        <span class="hint">Line chart · trend over time</span>
+      </button>
+
+      <button class="preset-btn" data-query="Monthly count of issues">
+        <span class="preset-icon">📅</span> Monthly count of issues
+        <span class="hint">Line chart · monthly trend</span>
+      </button>
+
+      <button class="preset-btn" data-query="Issues by borough">
+        <span class="preset-icon">🗺️</span> Issues by borough
+        <span class="hint">Bar chart · all areas</span>
+      </button>
+
+      <button class="preset-btn" data-query="Top 10 complaint types in Brooklyn">
+        <span class="preset-icon">🔍</span> Top 10 in Brooklyn
+        <span class="hint">Bar chart · area filter applied</span>
+      </button>
+
+      <button class="preset-btn" data-query="Breakdown of complaints by status">
+        <span class="preset-icon">🥧</span> Status breakdown
+        <span class="hint">Pie chart · open / closed / pending</span>
+      </button>
+    </div>
+
+    <!-- History -->
+    <div class="section">
+      <div class="section-title">History</div>
+      <div id="history-list">
+        <div class="history-empty">No queries yet</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main>
+
+    <div id="chart-card">
+      <div id="chart-toolbar">
+        <div id="chart-meta">Load a dataset to get started</div>
+        <div id="spec-tag" style="display:none"></div>
+      </div>
+      <div id="chart-wrap">
+        <div id="empty-state">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4"  y="32" width="12" height="28" rx="3" fill="#6366f1"/>
+            <rect x="22" y="20" width="12" height="40" rx="3" fill="#8b5cf6"/>
+            <rect x="40" y="8"  width="12" height="52" rx="3" fill="#ec4899"/>
+          </svg>
+          <p>Load a dataset, then type or pick a query</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="query-bar">
+      <input
+        id="query-input"
+        type="text"
+        placeholder="e.g. Top 10 complaint types in Manhattan · Daily trend of noise complaints · Issues by borough"
+        autocomplete="off"
+      />
+      <button id="query-submit" disabled>Ask</button>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+  import { ChromaChart } from '../src/chromachart.js';
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let chart = null;
+  let history = [];
+
+  // ── AI badge ─────────────────────────────────────────────────────────────
+  ChromaChart.aiAvailable().then(on => {
+    const badge = document.getElementById('ai-badge');
+    const label = document.getElementById('ai-label');
+    if (on) {
+      badge.classList.add('ai-on');
+      label.textContent = 'Gemini Nano — on-device AI';
+    } else {
+      label.textContent = 'Rules-based NLP (no AI flag)';
+    }
+  });
+
+  // ── Chart init ────────────────────────────────────────────────────────────
+  function initChart() {
+    chart = new ChromaChart({
+      container: '#chart-wrap',
+      onLoad: ({ rowCount, schema }) => {
+        document.getElementById('stat-rows').textContent = rowCount.toLocaleString();
+        document.getElementById('stat-cols').textContent = Object.keys(schema).length;
+        document.getElementById('info-section').style.display = 'block';
+        document.getElementById('data-info').style.display    = 'block';
+
+        const list = document.getElementById('schema-list');
+        list.innerHTML = '';
+        Object.entries(schema).forEach(([k, v]) => {
+          const pill = document.createElement('span');
+          pill.className = `schema-pill pill-${v.type}`;
+          pill.textContent = k;
+          list.appendChild(pill);
+        });
+
+        document.getElementById('query-submit').disabled = false;
+        document.getElementById('chart-meta').textContent = `${rowCount.toLocaleString()} rows loaded — ask a question below`;
+        document.getElementById('empty-state').style.display = 'none';
+        toast(`Loaded ${rowCount.toLocaleString()} rows`);
+      },
+      onError: (err) => toast(String(err), true)
+    });
+  }
+
+  // ── Query ─────────────────────────────────────────────────────────────────
+  async function runQuery(text) {
+    if (!chart || !text.trim()) return;
+
+    const btn = document.getElementById('query-submit');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Thinking…';
+
+    try {
+      const { spec, result } = await chart.query(text);
+
+      document.getElementById('chart-meta').innerHTML =
+        `<strong>${result.rowCount.toLocaleString()}</strong> rows matched &nbsp;·&nbsp; ${result.labels.length} groups`;
+
+      const specTag = document.getElementById('spec-tag');
+      specTag.style.display = 'inline';
+      specTag.textContent = `${spec.type}  ·  ${spec.x?.field}  ·  ${spec.y?.aggregate}`;
+
+      addHistory(text);
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  // ── History ───────────────────────────────────────────────────────────────
+  function addHistory(text) {
+    history.unshift(text);
+    if (history.length > 20) history.pop();
+
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+    history.forEach(q => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.textContent = q;
+      item.title = q;
+      item.addEventListener('click', () => {
+        document.getElementById('query-input').value = q;
+        runQuery(q);
+      });
+      list.appendChild(item);
+    });
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, isErr = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show${isErr ? ' err' : ''}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────
+
+  // Load sample data
+  document.getElementById('btn-sample').addEventListener('click', () => {
+    if (!chart) initChart();
+    toast('Loading NYC 311 dataset…');
+    chart.loadURL('../data/nyc311.csv').catch(e => toast(e.message, true));
+  });
+
+  // File drop zone
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file?.name.endsWith('.csv')) handleFile(file);
+    else toast('Please drop a .csv file', true);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!chart) initChart();
+    chart.loadFile(file).catch(e => toast(e.message, true));
+  }
+
+  // Query input
+  document.getElementById('query-submit').addEventListener('click', () => {
+    runQuery(document.getElementById('query-input').value);
+  });
+
+  document.getElementById('query-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runQuery(e.target.value);
+  });
+
+  // Preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.query;
+      document.getElementById('query-input').value = q;
+      runQuery(q);
+    });
+  });
+</script>
+</body>
+</html>
