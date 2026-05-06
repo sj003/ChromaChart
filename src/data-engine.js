@@ -69,7 +69,7 @@ export class DataEngine {
   query(spec) {
     let rows = [...this.rows];
 
-    // Filter
+    // Inclusion filter (exact match or array of exact matches)
     if (spec.filter) {
       for (const [field, value] of Object.entries(spec.filter)) {
         if (!value) continue;
@@ -78,6 +78,17 @@ export class DataEngine {
           return Array.isArray(value)
             ? value.some(val => v === val.toLowerCase())
             : v === String(value).toLowerCase();
+        });
+      }
+    }
+
+    // Exclusion filter (partial substring match — handles "ignoring parking" → removes "Illegal Parking")
+    if (spec.exclude) {
+      for (const [field, keywords] of Object.entries(spec.exclude)) {
+        if (!keywords?.length) continue;
+        rows = rows.filter(r => {
+          const v = (r[field] || '').toLowerCase();
+          return !keywords.some(kw => v.includes(kw.toLowerCase()));
         });
       }
     }

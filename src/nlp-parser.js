@@ -11,6 +11,7 @@ export class NLPParser {
     this._applyTopK(q, spec);
     this._applyTimeGranularity(q, spec);
     this._applyAreaFilter(q, spec);
+    this._applyExclusions(q, spec);
     spec.title = query.charAt(0).toUpperCase() + query.slice(1);
 
     return spec;
@@ -77,6 +78,25 @@ export class NLPParser {
 
     const field = this._find(['borough', 'city', 'area', 'district']);
     if (field) spec.filter[field] = found.map(b => b.toUpperCase());
+  }
+
+  _applyExclusions(q, spec) {
+    // Detect: "ignoring X", "excluding X", "except X", "without X", "not including X"
+    const match = q.match(/(?:ignoring|excluding|except(?:\s+for)?|without|not\s+including)\s+(.+?)(?:\s+(?:and|or)\s+\w|$)/i);
+    if (!match) return;
+
+    // Extract meaningful keywords — strip filler words
+    const stopWords = new Set(['related', 'issues', 'like', 'such', 'as', 'and', 'or', 'the', 'a', 'an', 'type', 'types', 'complaints', 'complaint']);
+    const keywords = match[1]
+      .split(/[\s,]+/)
+      .map(w => w.replace(/[^a-z0-9]/gi, ''))
+      .filter(w => w.length > 2 && !stopWords.has(w));
+
+    if (!keywords.length) return;
+
+    const field = this._find(['complaint_type', 'type', 'category', 'issue_type']) || spec.x.field;
+    spec.exclude = spec.exclude || {};
+    spec.exclude[field] = keywords;
   }
 
   _label(field) {

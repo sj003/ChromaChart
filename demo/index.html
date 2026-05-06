@@ -305,10 +305,18 @@
         </p>
       </div>
       <input type="file" id="file-input" accept=".csv" />
-      <div class="or-row">or</div>
-      <button class="btn-load-sample" id="btn-sample">
-        Load NYC 311 sample (20 k rows)
-      </button>
+      <div class="or-row">or use NYC 311 dataset</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-load-sample" id="btn-sample-20k" style="flex:1">
+          Load 20K rows
+        </button>
+        <button class="btn-load-sample" id="btn-sample-200k" style="flex:1">
+          Load 200K rows
+        </button>
+      </div>
+      <div style="font-size:10px;color:var(--slate-6);margin-top:6px;line-height:1.5">
+        Full dataset: ~35M rows · data.cityofnewyork.us
+      </div>
     </div>
 
     <!-- Data info -->
@@ -517,10 +525,28 @@
   // ── Events ────────────────────────────────────────────────────────────────
 
   // Load sample data
-  document.getElementById('btn-sample').addEventListener('click', () => {
+  async function loadRemote(limit, btn) {
     if (!chart) initChart();
-    toast('Loading NYC 311 dataset…');
-    chart.loadURL('../data/nyc311.csv').catch(e => toast(e.message, true));
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#475569"></span>Fetching…';
+    toast(`Fetching ${limit.toLocaleString()} rows from data.gov…`);
+    const url = `https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$limit=${limit}&$order=created_date+DESC&$select=created_date,complaint_type,borough,agency_name,status`;
+    try {
+      await chart.loadURL(url);
+    } catch(e) {
+      toast(e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  }
+
+  document.getElementById('btn-sample-20k').addEventListener('click', function() {
+    loadRemote(20000, this);
+  });
+  document.getElementById('btn-sample-200k').addEventListener('click', function() {
+    loadRemote(200000, this);
   });
 
   // File drop zone
