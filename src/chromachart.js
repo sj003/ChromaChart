@@ -2,6 +2,7 @@ import { DataEngine }      from './data-engine.js';
 import { PromptCompiler }  from './prompt-compiler.js';
 import { NLPParser }       from './nlp-parser.js';
 import { Renderer }        from './renderer.js';
+import { Analyzer }        from './analyzer.js';
 
 export class ChromaChart {
   constructor({ container, onLoad, onError } = {}) {
@@ -82,6 +83,14 @@ export class ChromaChart {
     const result = this._engine.query(spec);
     if (this._renderer) this._renderer.render(result, spec);
     return { spec, result };
+  }
+
+  // ── Deep analysis (multi-chart, multi-turn AI) ────────────────────────────
+
+  async analyze(topic, options = {}) {
+    if (!this._engine.rowCount) throw new Error('No data loaded.');
+    const analyzer = new Analyzer(this._engine);
+    return analyzer.analyze(topic, options);
   }
 
   // ── Introspection ──────────────────────────────────────────────────────────

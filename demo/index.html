@@ -33,15 +33,11 @@
       overflow: hidden;
     }
 
-    /* ── Top bar ── */
+    /* ── Header ── */
     header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 24px;
-      height: 56px;
-      background: #fff;
-      border-bottom: 1px solid var(--slate-3);
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 24px; height: 56px;
+      background: #fff; border-bottom: 1px solid var(--slate-3);
       flex-shrink: 0;
     }
     .logo { display: flex; align-items: center; gap: 8px; }
@@ -50,61 +46,51 @@
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       display: grid; place-items: center;
     }
-    .logo-icon svg { width: 16px; height: 16px; }
     .logo-name { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
-    .logo-tag  { font-size: 11px; color: var(--slate-6); margin-left: 4px; font-weight: 400; }
+    .logo-tag  { font-size: 11px; color: var(--slate-6); margin-left: 4px; }
 
     #ai-badge {
-      margin-left: auto;
-      display: flex; align-items: center; gap: 5px;
-      font-size: 11px; font-weight: 500;
-      padding: 3px 9px; border-radius: 20px;
-      background: var(--slate-2); color: var(--slate-6);
+      margin-left: auto; display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 500; padding: 3px 9px;
+      border-radius: 20px; background: var(--slate-2); color: var(--slate-6);
     }
-    #ai-badge .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--slate-6); flex-shrink: 0;
-    }
-    #ai-badge.ai-on  { background: #dcfce7; color: #166534; }
+    #ai-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--slate-6); }
+    #ai-badge.ai-on { background: #dcfce7; color: #166534; }
     #ai-badge.ai-on .dot { background: var(--green); }
 
     /* ── Layout ── */
-    .layout {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+    .layout { display: flex; flex: 1; overflow: hidden; }
 
     /* ── Sidebar ── */
     aside {
-      width: 290px;
-      flex-shrink: 0;
-      background: #fff;
-      border-right: 1px solid var(--slate-3);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
+      width: 290px; flex-shrink: 0;
+      background: #fff; border-right: 1px solid var(--slate-3);
+      display: flex; flex-direction: column; overflow-y: auto;
     }
 
-    .section { padding: 16px; border-bottom: 1px solid var(--slate-3); }
+    .section { padding: 14px 16px; border-bottom: 1px solid var(--slate-3); }
     .section-title {
       font-size: 10px; font-weight: 700; letter-spacing: .08em;
       text-transform: uppercase; color: var(--slate-6); margin-bottom: 10px;
     }
 
-    /* Data upload */
+    /* Dataset tabs */
+    .dataset-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .tab-btn {
+      flex: 1; padding: 5px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; border: 1px solid var(--slate-3);
+      background: var(--slate-2); color: var(--slate-6); cursor: pointer;
+      transition: all .15s;
+    }
+    .tab-btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+    /* Drop zone */
     #drop-zone {
-      border: 2px dashed var(--slate-3);
-      border-radius: var(--radius);
-      padding: 20px 12px;
-      text-align: center;
-      cursor: pointer;
+      border: 2px dashed var(--slate-3); border-radius: var(--radius);
+      padding: 16px 12px; text-align: center; cursor: pointer;
       transition: border-color .15s, background .15s;
     }
-    #drop-zone:hover, #drop-zone.drag-over {
-      border-color: var(--brand);
-      background: var(--brand-lt);
-    }
+    #drop-zone:hover, #drop-zone.drag-over { border-color: var(--brand); background: var(--brand-lt); }
     #drop-zone p { font-size: 12px; color: var(--slate-6); line-height: 1.5; }
     #drop-zone strong { color: var(--brand); }
     #file-input { display: none; }
@@ -115,71 +101,67 @@
     }
     .or-row::before, .or-row::after { content: ''; flex: 1; height: 1px; background: var(--slate-3); }
 
-    .btn-load-sample {
-      width: 100%; padding: 7px;
+    /* Quick-load buttons */
+    .quick-load-group { display: flex; gap: 5px; margin-bottom: 5px; }
+    .btn-load {
+      flex: 1; padding: 6px 4px;
       background: var(--slate-2); border: 1px solid var(--slate-3);
-      border-radius: 6px; font-size: 12px; cursor: pointer;
-      color: var(--slate-9); transition: background .15s;
+      border-radius: 6px; font-size: 11px; cursor: pointer;
+      color: var(--slate-9); transition: background .15s; text-align: center;
     }
-    .btn-load-sample:hover { background: var(--slate-3); }
-
-    /* Data info */
-    #data-info {
-      font-size: 12px; color: var(--slate-6); line-height: 1.8;
-      display: none;
-    }
-    #data-info .stat { display: flex; justify-content: space-between; }
-    #data-info .stat strong { color: var(--slate-9); font-weight: 600; }
+    .btn-load:hover { background: var(--slate-3); }
+    .btn-load:disabled { opacity: .5; cursor: not-allowed; }
+    .source-note { font-size: 10px; color: var(--slate-6); line-height: 1.5; margin-top: 4px; }
 
     /* Schema pills */
     #schema-list { display: flex; flex-wrap: wrap; gap: 5px; }
-    .schema-pill {
-      font-size: 10px; padding: 2px 7px;
-      border-radius: 4px; font-weight: 500;
-    }
+    .schema-pill { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
     .pill-date   { background: #dbeafe; color: #1e40af; }
     .pill-number { background: #dcfce7; color: #166534; }
     .pill-string { background: #f3e8ff; color: #6b21a8; }
 
-    /* Preset queries */
+    /* Preset buttons */
+    .preset-group-label {
+      font-size: 10px; font-weight: 600; color: var(--slate-6);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin-bottom: 5px; margin-top: 6px;
+    }
     .preset-btn {
-      display: block; width: 100%;
-      text-align: left; padding: 8px 10px;
-      background: var(--slate-1); border: 1px solid var(--slate-3);
-      border-radius: 7px; font-size: 12px; cursor: pointer;
-      color: var(--slate-9); margin-bottom: 6px;
-      transition: border-color .15s, background .15s;
+      display: block; width: 100%; text-align: left;
+      padding: 7px 10px; background: var(--slate-1);
+      border: 1px solid var(--slate-3); border-radius: 7px;
+      font-size: 12px; cursor: pointer; color: var(--slate-9);
+      margin-bottom: 5px; transition: border-color .15s, background .15s;
     }
-    .preset-btn:hover  { border-color: var(--brand); background: var(--brand-lt); }
-    .preset-btn .hint  { display: block; font-size: 10px; color: var(--slate-6); margin-top: 2px; }
-    .preset-icon { margin-right: 5px; }
+    .preset-btn:hover { border-color: var(--brand); background: var(--brand-lt); }
+    .preset-btn.analyze-btn { border-color: #c4b5fd; }
+    .preset-btn.analyze-btn:hover { background: #f5f3ff; border-color: var(--brand); }
+    .preset-btn .hint { display: block; font-size: 10px; color: var(--slate-6); margin-top: 2px; }
 
-    /* ── Main panel ── */
+    /* History */
+    #history-list { max-height: 120px; overflow-y: auto; }
+    .history-item {
+      font-size: 11px; color: var(--slate-6); padding: 4px 0;
+      cursor: pointer; border-bottom: 1px solid var(--slate-3);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-item:hover { color: var(--brand); }
+    .history-empty { font-size: 11px; color: var(--slate-6); }
+
+    /* ── Main ── */
     main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      padding: 20px;
-      gap: 16px;
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; padding: 16px; gap: 12px;
     }
 
-    /* Chart card */
+    /* Single chart card */
     #chart-card {
-      flex: 1;
-      background: #fff;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      flex: 1; background: #fff; border-radius: var(--radius);
+      box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
     }
-
     #chart-toolbar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--slate-3);
-      flex-shrink: 0;
+      padding: 10px 16px; border-bottom: 1px solid var(--slate-3); flex-shrink: 0;
     }
     #chart-meta { font-size: 12px; color: var(--slate-6); }
     #chart-meta strong { color: var(--slate-9); }
@@ -188,98 +170,123 @@
       background: var(--slate-2); color: var(--slate-6);
       padding: 3px 8px; border-radius: 4px;
     }
-
-    #chart-wrap {
-      flex: 1;
-      padding: 20px;
-      position: relative;
-    }
-    #chart-wrap canvas { max-height: 100%; }
-
-    /* Empty state */
+    #chart-wrap { flex: 1; padding: 16px; position: relative; }
     #empty-state {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 10px; color: var(--slate-6);
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px; color: var(--slate-6);
     }
-    #empty-state svg { opacity: .25; }
+    #empty-state svg { opacity: .2; }
     #empty-state p { font-size: 13px; }
+
+    /* ── Analysis view ── */
+    #analysis-view {
+      flex: 1; display: none; flex-direction: column; overflow: hidden; gap: 10px;
+    }
+
+    #analysis-header {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 14px 18px; display: flex; align-items: flex-start; gap: 12px;
+      flex-shrink: 0;
+    }
+    #back-btn {
+      padding: 5px 12px; background: var(--slate-2); border: 1px solid var(--slate-3);
+      border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
+      flex-shrink: 0; color: var(--slate-9);
+    }
+    #back-btn:hover { background: var(--slate-3); }
+    #analysis-summary { flex: 1; font-size: 13px; line-height: 1.6; color: var(--slate-6); }
+    #analysis-summary strong { color: var(--slate-9); }
+    .ai-powered-tag {
+      font-size: 10px; font-weight: 600; padding: 3px 8px;
+      border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+      background: #ede9fe; color: #5b21b6;
+    }
+
+    /* Progress overlay */
+    #analysis-progress {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px; text-align: center; flex-shrink: 0;
+    }
+    .progress-steps { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .progress-step-icon { font-size: 24px; margin-bottom: 4px; }
+    #progress-text { font-size: 13px; color: var(--slate-6); }
+    .progress-bar-wrap { width: 240px; height: 4px; background: var(--slate-3); border-radius: 2px; margin-top: 8px; }
+    .progress-bar { height: 100%; background: var(--brand); border-radius: 2px; transition: width .4s ease; }
+
+    /* Analysis grid */
+    #analysis-grid {
+      flex: 1; overflow-y: auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; align-content: start;
+    }
+    .analysis-card {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .analysis-card-header {
+      padding: 10px 14px 0;
+      display: flex; align-items: baseline; justify-content: space-between;
+    }
+    .analysis-card-title { font-size: 13px; font-weight: 600; }
+    .analysis-card-q { font-size: 10px; color: var(--slate-6); }
+    .analysis-canvas-wrap { flex: 1; padding: 8px 14px; height: 200px; }
+    .analysis-insight {
+      font-size: 11px; color: var(--slate-6); line-height: 1.5;
+      padding: 8px 14px 12px; border-top: 1px solid var(--slate-3); background: var(--slate-1);
+    }
+    .analysis-insight strong { color: var(--slate-9); }
 
     /* Query bar */
     #query-bar {
-      display: flex; gap: 10px;
-      background: #fff;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 10px 12px;
-      flex-shrink: 0;
+      display: flex; gap: 10px; background: #fff;
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 10px 12px; flex-shrink: 0;
     }
     #query-input {
       flex: 1; border: none; outline: none;
-      font-size: 14px; font-family: inherit;
-      color: var(--slate-9);
-      background: transparent;
+      font-size: 14px; font-family: inherit; color: var(--slate-9); background: transparent;
     }
     #query-input::placeholder { color: #94a3b8; }
     #query-submit {
-      padding: 6px 16px;
-      background: var(--brand); color: #fff;
-      border: none; border-radius: 6px;
-      font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: opacity .15s;
-      white-space: nowrap;
+      padding: 6px 16px; background: var(--brand); color: #fff;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity .15s; white-space: nowrap;
     }
-    #query-submit:hover   { opacity: .9; }
+    #query-submit:hover { opacity: .9; }
     #query-submit:disabled { opacity: .5; cursor: not-allowed; }
 
     /* Toast */
     #toast {
       position: fixed; bottom: 24px; right: 24px;
       background: var(--slate-9); color: #fff;
-      font-size: 13px; padding: 10px 16px;
-      border-radius: 8px; opacity: 0;
-      transition: opacity .2s;
-      pointer-events: none; max-width: 320px;
-      z-index: 999;
+      font-size: 13px; padding: 10px 16px; border-radius: 8px;
+      opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 320px; z-index: 999;
     }
     #toast.show { opacity: 1; }
-    #toast.err  { background: var(--red); }
+    #toast.err { background: var(--red); }
 
-    /* Loading spinner */
+    /* Spinner */
     .spinner {
       display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-      margin-right: 6px;
+      border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px;
+    }
+    .spinner-dark {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,.1); border-top-color: var(--brand);
+      border-radius: 50%; animation: spin .6s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* History */
-    #history-list { max-height: 140px; overflow-y: auto; }
-    .history-item {
-      font-size: 11px; color: var(--slate-6);
-      padding: 4px 0; cursor: pointer;
-      border-bottom: 1px solid var(--slate-3);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .history-item:hover { color: var(--brand); }
-    .history-empty { font-size: 11px; color: var(--slate-6); }
+    #info-section { display: none; }
   </style>
 </head>
 <body>
 
-<!-- Top bar -->
 <header>
   <div class="logo">
     <div class="logo-icon">
-      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="8" width="3" height="7" rx="1" fill="white"/>
-        <rect x="6" y="5" width="3" height="10" rx="1" fill="white"/>
-        <rect x="11" y="2" width="3" height="13" rx="1" fill="white"/>
-      </svg>
+      <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="8" width="3" height="7" rx="1" fill="white"/><rect x="6" y="5" width="3" height="10" rx="1" fill="white"/><rect x="11" y="2" width="3" height="13" rx="1" fill="white"/></svg>
     </div>
     <span class="logo-name">ChromaChart</span>
     <span class="logo-tag">AI-powered browser charts</span>
@@ -299,92 +306,82 @@
     <div class="section">
       <div class="section-title">Data Source</div>
       <div id="drop-zone">
-        <p>
-          <strong>Drop a CSV file</strong><br>
-          or click to browse
-        </p>
+        <p><strong>Drop a CSV file</strong><br>or click to browse</p>
       </div>
       <input type="file" id="file-input" accept=".csv" />
-      <div class="or-row">or use NYC 311 dataset</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-load-sample" id="btn-sample-20k" style="flex:1">
-          Load 20K rows
-        </button>
-        <button class="btn-load-sample" id="btn-sample-200k" style="flex:1">
-          Load 200K rows
-        </button>
+
+      <div class="or-row">or quick-load</div>
+
+      <!-- NYC 311 -->
+      <div class="preset-group-label" style="margin-top:4px">NYC 311 Service Requests</div>
+      <div class="quick-load-group">
+        <button class="btn-load" id="btn-nyc-20k">20K rows</button>
+        <button class="btn-load" id="btn-nyc-200k">200K rows</button>
       </div>
-      <div style="font-size:10px;color:var(--slate-6);margin-top:6px;line-height:1.5">
-        Full dataset: ~35M rows · data.cityofnewyork.us
+      <div class="source-note">data.cityofnewyork.us · ~35M total rows</div>
+
+      <!-- Netflix -->
+      <div class="preset-group-label" style="margin-top:8px">Netflix Titles</div>
+      <div class="quick-load-group">
+        <button class="btn-load" id="btn-netflix">Load 8K titles</button>
       </div>
+      <div class="source-note">Movies & TV Shows · 2021 snapshot</div>
     </div>
 
-    <!-- Data info -->
-    <div class="section" id="info-section" style="display:none">
+    <!-- Dataset info -->
+    <div class="section" id="info-section">
       <div class="section-title">Dataset</div>
-      <div id="data-info">
-        <div class="stat"><span>Rows</span><strong id="stat-rows">—</strong></div>
-        <div class="stat"><span>Columns</span><strong id="stat-cols">—</strong></div>
+      <div id="data-info" style="font-size:12px;color:var(--slate-6);line-height:1.8">
+        <div style="display:flex;justify-content:space-between"><span>Rows</span><strong id="stat-rows">—</strong></div>
+        <div style="display:flex;justify-content:space-between"><span>Columns</span><strong id="stat-cols">—</strong></div>
       </div>
-      <div style="margin-top:10px">
-        <div class="section-title" style="margin-bottom:6px">Fields</div>
+      <div style="margin-top:8px">
+        <div class="section-title" style="margin-bottom:5px">Fields</div>
         <div id="schema-list"></div>
       </div>
     </div>
 
-    <!-- Preset queries -->
-    <div class="section">
+    <!-- Presets: single chart -->
+    <div class="section" id="preset-section">
       <div class="section-title">Preset Queries</div>
+      <div id="single-presets">
+        <div class="preset-group-label">Single Chart</div>
+        <button class="preset-btn" data-query="Top 10 complaint types">🏆 Top 10 complaint types<span class="hint">Bar chart · by volume</span></button>
+        <button class="preset-btn" data-query="Daily count of issues">📈 Daily count of issues<span class="hint">Line chart · trend</span></button>
+        <button class="preset-btn" data-query="Issues by borough">🗺️ Issues by borough<span class="hint">Bar chart · geographic</span></button>
+        <button class="preset-btn" data-query="Top 10 complaint types in Brooklyn">🔍 Top 10 in Brooklyn<span class="hint">Bar · area filtered</span></button>
+        <button class="preset-btn" data-query="Breakdown of complaints by status">🥧 Status breakdown<span class="hint">Pie chart</span></button>
 
-      <button class="preset-btn" data-query="Top 10 complaint types">
-        <span class="preset-icon">🏆</span> Top 10 complaint types
-        <span class="hint">Bar chart · sorted by volume</span>
-      </button>
+        <div class="preset-group-label" style="margin-top:8px">Deep Analysis</div>
+        <button class="preset-btn analyze-btn" data-query="Analyze blocked driveway">🔬 Analyze blocked driveway<span class="hint">4 charts · multi-turn AI</span></button>
+        <button class="preset-btn analyze-btn" data-query="Analyze noise complaints">🔬 Analyze noise complaints<span class="hint">4 charts · multi-turn AI</span></button>
+        <button class="preset-btn analyze-btn" data-query="Analyze heating issues">🔬 Analyze heating issues<span class="hint">4 charts · multi-turn AI</span></button>
+      </div>
 
-      <button class="preset-btn" data-query="Top 5 complaint types">
-        <span class="preset-icon">📊</span> Top 5 complaint types
-        <span class="hint">Bar chart · fewer categories</span>
-      </button>
+      <div id="netflix-presets" style="display:none">
+        <div class="preset-group-label">Single Chart</div>
+        <button class="preset-btn" data-query="Movies vs TV Shows">🎬 Movies vs TV Shows<span class="hint">Pie chart</span></button>
+        <button class="preset-btn" data-query="Top 10 countries by content count">🌍 Top 10 countries<span class="hint">Bar chart</span></button>
+        <button class="preset-btn" data-query="Content added by year">📅 Content added by year<span class="hint">Line chart · trend</span></button>
+        <button class="preset-btn" data-query="Content rating distribution">⭐ Rating distribution<span class="hint">Bar · TV-MA, PG, etc.</span></button>
 
-      <button class="preset-btn" data-query="Daily count of issues">
-        <span class="preset-icon">📈</span> Daily count of issues
-        <span class="hint">Line chart · trend over time</span>
-      </button>
-
-      <button class="preset-btn" data-query="Monthly count of issues">
-        <span class="preset-icon">📅</span> Monthly count of issues
-        <span class="hint">Line chart · monthly trend</span>
-      </button>
-
-      <button class="preset-btn" data-query="Issues by borough">
-        <span class="preset-icon">🗺️</span> Issues by borough
-        <span class="hint">Bar chart · all areas</span>
-      </button>
-
-      <button class="preset-btn" data-query="Top 10 complaint types in Brooklyn">
-        <span class="preset-icon">🔍</span> Top 10 in Brooklyn
-        <span class="hint">Bar chart · area filter applied</span>
-      </button>
-
-      <button class="preset-btn" data-query="Breakdown of complaints by status">
-        <span class="preset-icon">🥧</span> Status breakdown
-        <span class="hint">Pie chart · open / closed / pending</span>
-      </button>
+        <div class="preset-group-label" style="margin-top:8px">Deep Analysis</div>
+        <button class="preset-btn analyze-btn" data-query="Analyze TV Show content">🔬 Analyze TV Shows<span class="hint">4 charts · multi-turn AI</span></button>
+        <button class="preset-btn analyze-btn" data-query="Analyze Movie content">🔬 Analyze Movies<span class="hint">4 charts · multi-turn AI</span></button>
+      </div>
     </div>
 
     <!-- History -->
     <div class="section">
       <div class="section-title">History</div>
-      <div id="history-list">
-        <div class="history-empty">No queries yet</div>
-      </div>
+      <div id="history-list"><div class="history-empty">No queries yet</div></div>
     </div>
-
   </aside>
 
   <!-- Main -->
   <main>
 
+    <!-- Single chart view -->
     <div id="chart-card">
       <div id="chart-toolbar">
         <div id="chart-meta">Load a dataset to get started</div>
@@ -392,21 +389,39 @@
       </div>
       <div id="chart-wrap">
         <div id="empty-state">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
             <rect x="4"  y="32" width="12" height="28" rx="3" fill="#6366f1"/>
             <rect x="22" y="20" width="12" height="40" rx="3" fill="#8b5cf6"/>
             <rect x="40" y="8"  width="12" height="52" rx="3" fill="#ec4899"/>
           </svg>
-          <p>Load a dataset, then type or pick a query</p>
+          <p>Load a dataset, then type or pick a query below</p>
         </div>
       </div>
     </div>
 
+    <!-- Analysis view (multi-chart) -->
+    <div id="analysis-view">
+      <div id="analysis-header">
+        <button id="back-btn">← Back</button>
+        <div id="analysis-summary">Loading analysis…</div>
+        <div id="ai-powered-tag" class="ai-powered-tag" style="display:none">✦ Gemini Nano</div>
+      </div>
+      <div id="analysis-progress" style="display:none">
+        <div class="progress-steps">
+          <div class="progress-step-icon">🤔</div>
+          <div id="progress-text">Starting analysis…</div>
+          <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:5%"></div></div>
+        </div>
+      </div>
+      <div id="analysis-grid"></div>
+    </div>
+
+    <!-- Query bar (always visible) -->
     <div id="query-bar">
       <input
         id="query-input"
         type="text"
-        placeholder="e.g. Top 10 complaint types in Manhattan · Daily trend of noise complaints · Issues by borough"
+        placeholder='Try: "Top 10 complaint types in Manhattan" · "Analyze blocked driveway" · "Daily trend"'
         autocomplete="off"
       />
       <button id="query-submit" disabled>Ask</button>
@@ -420,31 +435,32 @@
 <script type="module">
   import { ChromaChart } from '../src/chromachart.js';
 
-  // ── State ────────────────────────────────────────────────────────────────
+  // ── State ──────────────────────────────────────────────────────────────────
   let chart = null;
-  let history = [];
+  let activeDataset = null;  // 'nyc311' | 'netflix'
+  let queryHistory  = [];
+  let analysisCharts = [];   // Chart.js instances in analysis view
 
-  // ── AI badge ─────────────────────────────────────────────────────────────
+  // ── AI badge ───────────────────────────────────────────────────────────────
   ChromaChart.aiAvailable().then(on => {
     const badge = document.getElementById('ai-badge');
-    const label = document.getElementById('ai-label');
     if (on) {
       badge.classList.add('ai-on');
-      label.textContent = 'Gemini Nano — on-device AI';
+      document.getElementById('ai-label').textContent = 'Gemini Nano — on-device AI';
     } else {
-      label.textContent = 'Rules-based NLP (no AI flag)';
+      document.getElementById('ai-label').textContent = 'Rules-based NLP (no AI flag)';
     }
   });
 
-  // ── Chart init ────────────────────────────────────────────────────────────
+  // ── Chart init ─────────────────────────────────────────────────────────────
   function initChart() {
+    if (chart) return;
     chart = new ChromaChart({
       container: '#chart-wrap',
       onLoad: ({ rowCount, schema }) => {
         document.getElementById('stat-rows').textContent = rowCount.toLocaleString();
         document.getElementById('stat-cols').textContent = Object.keys(schema).length;
         document.getElementById('info-section').style.display = 'block';
-        document.getElementById('data-info').style.display    = 'block';
 
         const list = document.getElementById('schema-list');
         list.innerHTML = '';
@@ -456,54 +472,288 @@
         });
 
         document.getElementById('query-submit').disabled = false;
-        document.getElementById('chart-meta').textContent = `${rowCount.toLocaleString()} rows loaded — ask a question below`;
+        document.getElementById('chart-meta').textContent =
+          `${rowCount.toLocaleString()} rows loaded — ask a question below`;
         document.getElementById('empty-state').style.display = 'none';
         toast(`Loaded ${rowCount.toLocaleString()} rows`);
       },
-      onError: (err) => toast(String(err), true)
+      onError: e => toast(String(e), true)
     });
   }
 
-  // ── Query ─────────────────────────────────────────────────────────────────
+  // ── Query routing ──────────────────────────────────────────────────────────
+  function isAnalyzeQuery(text) {
+    return /^analyze\b/i.test(text.trim());
+  }
+
   async function runQuery(text) {
     if (!chart || !text.trim()) return;
+    addHistory(text);
 
+    if (isAnalyzeQuery(text)) {
+      await runAnalysis(text);
+    } else {
+      await runSingleChart(text);
+    }
+  }
+
+  // ── Single chart ───────────────────────────────────────────────────────────
+  async function runSingleChart(text) {
+    showView('chart');
     const btn = document.getElementById('query-submit');
-    const originalText = btn.textContent;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Thinking…';
 
     try {
       const { spec, result } = await chart.query(text);
-
       document.getElementById('chart-meta').innerHTML =
         `<strong>${result.rowCount.toLocaleString()}</strong> rows matched &nbsp;·&nbsp; ${result.labels.length} groups`;
-
-      const specTag = document.getElementById('spec-tag');
-      specTag.style.display = 'inline';
-      specTag.textContent = `${spec.type}  ·  ${spec.x?.field}  ·  ${spec.y?.aggregate}`;
-
-      addHistory(text);
+      const st = document.getElementById('spec-tag');
+      st.style.display = 'inline';
+      st.textContent = `${spec.type}  ·  ${spec.x?.field}  ·  ${spec.y?.aggregate}`;
     } catch (err) {
       toast(err.message, true);
     } finally {
       btn.disabled = false;
-      btn.textContent = originalText;
+      btn.textContent = 'Ask';
     }
   }
 
-  // ── History ───────────────────────────────────────────────────────────────
-  function addHistory(text) {
-    history.unshift(text);
-    if (history.length > 20) history.pop();
+  // ── Deep analysis ──────────────────────────────────────────────────────────
+  async function runAnalysis(text) {
+    showView('analysis');
+    destroyAnalysisCharts();
 
+    const grid     = document.getElementById('analysis-grid');
+    const progress = document.getElementById('analysis-progress');
+    const summary  = document.getElementById('analysis-summary');
+
+    grid.innerHTML     = '';
+    summary.innerHTML  = 'Analyzing…';
+    progress.style.display = 'block';
+    document.getElementById('ai-powered-tag').style.display = 'none';
+
+    let progressPct = 10;
+    const onProgress = msg => {
+      document.getElementById('progress-text').textContent = msg;
+      progressPct = Math.min(progressPct + 18, 90);
+      document.getElementById('progress-bar').style.width = progressPct + '%';
+    };
+
+    const btn = document.getElementById('query-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Analyzing…';
+
+    try {
+      const result = await chart.analyze(text, { onProgress });
+
+      progress.style.display = 'none';
+      document.getElementById('progress-bar').style.width = '100%';
+
+      // Summary header
+      summary.innerHTML = result.summary;
+      if (result.aiPowered) {
+        document.getElementById('ai-powered-tag').style.display = 'inline';
+      }
+
+      // Render charts
+      result.analyses.forEach((analysis, i) => {
+        const card = buildAnalysisCard(analysis, i);
+        grid.appendChild(card);
+      });
+
+    } catch (err) {
+      progress.style.display = 'none';
+      toast(err.message, true);
+      showView('chart');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Ask';
+    }
+  }
+
+  function buildAnalysisCard(analysis, index) {
+    const card = document.createElement('div');
+    card.className = 'analysis-card';
+
+    const PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308','#22c55e','#14b8a6','#06b6d4','#3b82f6'];
+
+    card.innerHTML = `
+      <div class="analysis-card-header">
+        <span class="analysis-card-title">${analysis.title}</span>
+        <span class="analysis-card-q">${analysis.question || ''}</span>
+      </div>
+      <div class="analysis-canvas-wrap">
+        <canvas id="analysis-canvas-${index}"></canvas>
+      </div>
+      <div class="analysis-insight">${analysis.insight}</div>
+    `;
+
+    // Render chart after inserting into DOM
+    requestAnimationFrame(() => {
+      const canvas = document.getElementById(`analysis-canvas-${index}`);
+      if (!canvas || !analysis.result) return;
+
+      const { labels, values } = analysis.result;
+      const spec   = analysis.spec;
+      const isPie  = spec.type === 'pie';
+      const isLine = spec.type === 'line' || spec.type === 'area';
+      const chartType = isPie ? 'pie' : isLine ? 'line' : 'bar';
+
+      const colors = isPie
+        ? labels.map((_, i) => PALETTE[i % PALETTE.length])
+        : isLine ? PALETTE[index % PALETTE.length] : labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
+      const bgColor = isLine
+        ? hexToRgba(PALETTE[index % PALETTE.length], 0.1)
+        : colors;
+
+      const instance = new Chart(canvas, {
+        type: chartType,
+        data: {
+          labels,
+          datasets: [{
+            label: 'Count',
+            data: values,
+            backgroundColor: bgColor,
+            borderColor: colors,
+            borderWidth: isLine ? 2 : 1,
+            fill: spec.type === 'area',
+            tension: 0.3,
+            pointRadius: isLine ? 2 : 0,
+            hoverOffset: isPie ? 6 : 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          plugins: {
+            legend: { display: isPie, position: 'bottom', labels: { padding: 10, font: { size: 10 } } },
+            title: { display: false },
+            tooltip: { bodyFont: { size: 11 }, titleFont: { size: 11 }, padding: 8 }
+          },
+          scales: isPie ? {} : {
+            x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, maxRotation: 40, maxTicksLimit: 12, color: '#64748b' } },
+            y: { grid: { color: 'rgba(0,0,0,0.04)' }, beginAtZero: true, ticks: { font: { size: 10 }, color: '#64748b' } }
+          }
+        }
+      });
+      analysisCharts.push(instance);
+    });
+
+    return card;
+  }
+
+  function destroyAnalysisCharts() {
+    analysisCharts.forEach(c => c.destroy());
+    analysisCharts = [];
+  }
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // ── View switching ─────────────────────────────────────────────────────────
+  function showView(mode) {
+    document.getElementById('chart-card').style.display    = mode === 'chart'    ? 'flex' : 'none';
+    document.getElementById('analysis-view').style.display = mode === 'analysis' ? 'flex' : 'none';
+  }
+
+  document.getElementById('back-btn').addEventListener('click', () => {
+    destroyAnalysisCharts();
+    showView('chart');
+  });
+
+  // ── Dataset loaders ────────────────────────────────────────────────────────
+  async function loadRemoteNYC(limit, btn) {
+    if (!chart) initChart();
+    setLoading(btn, true);
+    activeDataset = 'nyc311';
+    updatePresets('nyc311');
+    toast(`Fetching ${limit.toLocaleString()} rows from data.gov…`);
+    const url = `https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$limit=${limit}&$order=created_date+DESC&$select=created_date,complaint_type,borough,agency_name,status`;
+    try { await chart.loadURL(url); }
+    catch(e) { toast(e.message, true); }
+    finally { setLoading(btn, false); }
+  }
+
+  async function loadNetflix(btn) {
+    if (!chart) initChart();
+    setLoading(btn, true);
+    activeDataset = 'netflix';
+    updatePresets('netflix');
+    toast('Loading Netflix dataset…');
+    try { await chart.loadURL('../data/netflix.csv'); }
+    catch(e) { toast(e.message, true); }
+    finally { setLoading(btn, false); }
+  }
+
+  function setLoading(btn, on) {
+    btn.disabled = on;
+    if (on) btn.dataset.orig = btn.textContent;
+    btn.innerHTML = on
+      ? '<span class="spinner-dark"></span>'
+      : btn.dataset.orig;
+  }
+
+  function updatePresets(dataset) {
+    document.getElementById('single-presets').style.display  = dataset === 'nyc311'  ? 'block' : 'none';
+    document.getElementById('netflix-presets').style.display = dataset === 'netflix' ? 'block' : 'none';
+  }
+
+  document.getElementById('btn-nyc-20k').addEventListener('click',  function() { loadRemoteNYC(20000,  this); });
+  document.getElementById('btn-nyc-200k').addEventListener('click', function() { loadRemoteNYC(200000, this); });
+  document.getElementById('btn-netflix').addEventListener('click',  function() { loadNetflix(this); });
+
+  // ── File upload ────────────────────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f?.name.endsWith('.csv')) handleFile(f);
+    else toast('Please drop a .csv file', true);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  function handleFile(file) {
+    if (!chart) initChart();
+    activeDataset = 'custom';
+    updatePresets('nyc311');
+    chart.loadFile(file).catch(e => toast(e.message, true));
+  }
+
+  // ── Query events ───────────────────────────────────────────────────────────
+  document.getElementById('query-submit').addEventListener('click', () => {
+    runQuery(document.getElementById('query-input').value);
+  });
+  document.getElementById('query-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runQuery(e.target.value);
+  });
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.query;
+      document.getElementById('query-input').value = q;
+      runQuery(q);
+    });
+  });
+
+  // ── History ────────────────────────────────────────────────────────────────
+  function addHistory(text) {
+    queryHistory.unshift(text);
+    if (queryHistory.length > 20) queryHistory.pop();
     const list = document.getElementById('history-list');
     list.innerHTML = '';
-    history.forEach(q => {
+    queryHistory.forEach(q => {
       const item = document.createElement('div');
       item.className = 'history-item';
-      item.textContent = q;
-      item.title = q;
+      item.textContent = q; item.title = q;
       item.addEventListener('click', () => {
         document.getElementById('query-input').value = q;
         runQuery(q);
@@ -512,84 +762,15 @@
     });
   }
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
+  // ── Toast ──────────────────────────────────────────────────────────────────
   let toastTimer;
   function toast(msg, isErr = false) {
     const el = document.getElementById('toast');
     el.textContent = msg;
     el.className = `show${isErr ? ' err' : ''}`;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3500);
   }
-
-  // ── Events ────────────────────────────────────────────────────────────────
-
-  // Load sample data
-  async function loadRemote(limit, btn) {
-    if (!chart) initChart();
-    const orig = btn.textContent;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#475569"></span>Fetching…';
-    toast(`Fetching ${limit.toLocaleString()} rows from data.gov…`);
-    const url = `https://data.cityofnewyork.us/resource/erm2-nwe9.csv?$limit=${limit}&$order=created_date+DESC&$select=created_date,complaint_type,borough,agency_name,status`;
-    try {
-      await chart.loadURL(url);
-    } catch(e) {
-      toast(e.message, true);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = orig;
-    }
-  }
-
-  document.getElementById('btn-sample-20k').addEventListener('click', function() {
-    loadRemote(20000, this);
-  });
-  document.getElementById('btn-sample-200k').addEventListener('click', function() {
-    loadRemote(200000, this);
-  });
-
-  // File drop zone
-  const dropZone = document.getElementById('drop-zone');
-  const fileInput = document.getElementById('file-input');
-
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file?.name.endsWith('.csv')) handleFile(file);
-    else toast('Please drop a .csv file', true);
-  });
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) handleFile(fileInput.files[0]);
-  });
-
-  function handleFile(file) {
-    if (!chart) initChart();
-    chart.loadFile(file).catch(e => toast(e.message, true));
-  }
-
-  // Query input
-  document.getElementById('query-submit').addEventListener('click', () => {
-    runQuery(document.getElementById('query-input').value);
-  });
-
-  document.getElementById('query-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') runQuery(e.target.value);
-  });
-
-  // Preset buttons
-  document.querySelectorAll('.preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const q = btn.dataset.query;
-      document.getElementById('query-input').value = q;
-      runQuery(q);
-    });
-  });
 </script>
 </body>
 </html>
