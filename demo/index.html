@@ -502,13 +502,22 @@
   let analysisCharts = [];   // Chart.js instances in analysis view
 
   // ── AI badge ───────────────────────────────────────────────────────────────
-  ChromaChart.aiAvailable().then(on => {
+  ChromaChart.aiStatus().then(({ ready, status, detail }) => {
     const badge = document.getElementById('ai-badge');
-    if (on) {
+    const label = document.getElementById('ai-label');
+    badge.title = detail; // hover to see full reason
+    console.log('[ChromaChart badge] status:', status, '|', detail);
+
+    if (ready) {
       badge.classList.add('ai-on');
-      document.getElementById('ai-label').textContent = 'Gemini Nano — on-device AI';
+      label.textContent = 'Gemini Nano — on-device AI';
+    } else if (status === 'downloading') {
+      badge.style.background = '#fef9c3'; badge.style.color = '#854d0e';
+      badge.querySelector('.dot').style.background = '#f59e0b';
+      label.textContent = 'Gemini Nano — downloading…';
+      toast('⚠️ ' + detail, false);
     } else {
-      document.getElementById('ai-label').textContent = 'Rules-based NLP (no AI flag)';
+      label.textContent = 'Statistical analysis (no Gemini Nano)';
     }
   });
 

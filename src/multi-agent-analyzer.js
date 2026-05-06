@@ -19,7 +19,9 @@ export class MultiAgentAnalyzer {
     const aiAvailable = await this._checkAI();
 
     if (!aiAvailable) {
-      onProgress({ agent: null, message: 'Gemini Nano session unavailable — running statistical analysis…', step: 0, total: 1 });
+      const reason = this._aiError || 'Gemini Nano session unavailable';
+      onProgress({ agent: null, message: `⚠️ ${reason}`, step: 0, total: 1 });
+      onProgress({ agent: null, message: 'Running statistical analysis instead…', step: 0, total: 1 });
       const result = await this._fallback.analyze(topic, {
         onProgress: msg => onProgress({ agent: null, message: msg, step: 0, total: 1 })
       });
@@ -225,17 +227,50 @@ Return JSON:
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   async _checkAI() {
+    this._aiError = null;
     try {
-      // Mirror exactly what ChromaChart.aiAvailable() does — all optional chaining
-      // so it never throws even if the API shape differs between Chrome versions.
-      if (!window?.ai?.languageModel) return false;
-      const cap = await window.ai.languageModel?.capabilities?.();
-      if (cap?.available === 'no') return false;
-      // Confirm we can actually open a session (capabilities alone is not enough)
+      if (!window?.ai?.languageModel) {
+        this._aiError = 'window.ai.languageModel not found — enable chrome://flags/#prompt-api-for-gemini-nano';
+        console.warn('[ChromaChart]', this._aiError);
+        return false;
+      }
+
+      const cap = await window.ai.languageModel.capabilities?.();
+      console.log('[ChromaChart] capabilities:', JSON.stringify(cap));
+
+      if (!cap) {
+        this._aiError = 'capabilities() returned null — API may not be active';
+        console.warn('[ChromaChart]', this._aiError);
+        return false;
+      }
+      if (cap.available === 'no') {
+        this._aiError = 'Model not supported on this device';
+        console.warn('[ChromaChart]', this._aiError);
+        return false;
+      }
+      if (cap.available === 'after-download') {
+        this._aiError = `Model is still downloading — go to chrome://components and update "Optimization Guide On Device Model", then reload`;
+        console.warn('[ChromaChart]', this._aiError);
+        return false;
+      }
+      if (cap.available !== 'readily') {
+        this._aiError = `Unexpected capabilities.available value: "${cap.available}"`;
+        console.warn('[ChromaChart]', this._aiError);
+        return false;
+      }
+
+      // 'readily' — verify session creation actually succeeds
+      console.log('[ChromaChart] capabilities OK, probing session creation…');
       const probe = await window.ai.languageModel.create({ systemPrompt: '' });
       probe.destroy();
+      console.log('[ChromaChart] probe session created and destroyed — AI ready ✓');
       return true;
-    } catch { return false; }
+
+    } catch (err) {
+      this._aiError = `AI check failed: ${err.message}`;
+      console.error('[ChromaChart]', this._aiError, err);
+      return false;
+    }
   }
 
   _resolve(topic) {

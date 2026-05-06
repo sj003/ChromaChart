@@ -98,10 +98,31 @@ export class ChromaChart {
   get schema()   { return this._engine.schema; }
   get rowCount() { return this._engine.rowCount; }
 
-  static async aiAvailable() {
+  // Returns { ready: bool, status: 'ready'|'downloading'|'unavailable'|'error', detail: string }
+  static async aiStatus() {
     try {
-      const cap = await window?.ai?.languageModel?.capabilities?.();
-      return cap?.available !== 'no';
-    } catch { return false; }
+      if (!window?.ai?.languageModel) return { ready: false, status: 'unavailable', detail: 'window.ai.languageModel not found' };
+      const cap = await window.ai.languageModel.capabilities?.();
+      console.log('[ChromaChart] AI capabilities:', cap);
+      if (!cap) return { ready: false, status: 'unavailable', detail: 'capabilities() returned nothing' };
+      if (cap.available === 'no')             return { ready: false, status: 'unavailable', detail: 'Model not supported on this device' };
+      if (cap.available === 'after-download') return { ready: false, status: 'downloading', detail: 'Model downloading — check chrome://components' };
+      if (cap.available !== 'readily')        return { ready: false, status: 'unavailable', detail: `Unexpected status: ${cap.available}` };
+      // 'readily' — confirm session creation actually works
+      try {
+        const probe = await window.ai.languageModel.create({ systemPrompt: '' });
+        probe.destroy();
+        return { ready: true, status: 'ready', detail: 'Gemini Nano ready' };
+      } catch (e) {
+        return { ready: false, status: 'error', detail: `Session creation failed: ${e.message}` };
+      }
+    } catch (e) {
+      return { ready: false, status: 'error', detail: e.message };
+    }
+  }
+
+  static async aiAvailable() {
+    const { ready } = await ChromaChart.aiStatus();
+    return ready;
   }
 }
