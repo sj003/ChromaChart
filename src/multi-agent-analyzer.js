@@ -9,10 +9,21 @@
 
 import { Analyzer } from './analyzer.js';
 
+// Resolve the Chrome AI API regardless of which version is exposed.
+// Mirrors ChromaChart._resolveAPI(). Kept local to avoid circular imports.
+function resolveAIAPI() {
+  if (typeof window === 'undefined') return null;
+  if (window.LanguageModel?.create)     return { api: window.LanguageModel,    shape: 'new' };
+  if (window.ai?.languageModel?.create) return { api: window.ai.languageModel, shape: 'legacy' };
+  if (window.ai?.assistant?.create)     return { api: window.ai.assistant,     shape: 'legacy' };
+  return null;
+}
+
 export class MultiAgentAnalyzer {
   constructor(engine) {
-    this.engine   = engine;
+    this.engine    = engine;
     this._fallback = new Analyzer(engine);
+    this._aiAPI    = null;  // resolved once in _checkAI
   }
 
   async analyze(topic, { onProgress = () => {} } = {}) {
@@ -104,7 +115,7 @@ export class MultiAgentAnalyzer {
       ? this.engine.query({ x: { field: resolved.field }, y: { aggregate: 'count' }, filter: { [resolved.field]: resolved.value } }).rowCount
       : this.engine.rowCount;
 
-    const session = await window.ai.languageModel.create({
+    const session = await this._aiAPI.create({
       systemPrompt: 'You are a data profiler. Respond with valid JSON only.'
     });
 
@@ -154,7 +165,7 @@ Return JSON:
       ...(profile.midCardFields  || []).map(f => `${f} (${this.engine.schema[f]?.cardinality} values — good for bar, limit:10)`)
     ].filter(Boolean).join('\n');
 
-    const session = await window.ai.languageModel.create({
+    const session = await this._aiAPI.create({
       systemPrompt: 'You are a chart designer. Respond with valid JSON only.'
     });
 
@@ -196,7 +207,7 @@ Remove "granularity" key if field is not temporal.`;
       a.result.labels.slice(0, 5).map((l, j) => `${l}=${a.result.values[j]?.toLocaleString()}`).join(', ')
     ).join('\n');
 
-    const session = await window.ai.languageModel.create({
+    const session = await this._aiAPI.create({
       systemPrompt: 'You are a data analyst. Write clear, specific insights backed by numbers. Respond with valid JSON only.'
     });
 
@@ -228,42 +239,52 @@ Return JSON:
 
   async _checkAI() {
     this._aiError = null;
+    this._aiAPI   = null;
+
+    const found = resolveAIAPI();
+    if (!found) {
+      this._aiError = 'No Chrome AI API. Need Chrome 138+ Canary/Dev with chrome://flags/#prompt-api-for-gemini-nano enabled.';
+      console.warn('[ChromaChart]', this._aiError);
+      return false;
+    }
+    const { api, shape } = found;
+    console.log(`[ChromaChart] AI API resolved, shape="${shape}"`);
+
     try {
-      if (!window?.ai?.languageModel) {
-        this._aiError = 'window.ai.languageModel not found — enable chrome://flags/#prompt-api-for-gemini-nano';
-        console.warn('[ChromaChart]', this._aiError);
+      let availability;
+      if (typeof api.availability === 'function') {
+        availability = await api.availability();
+        console.log('[ChromaChart] availability():', availability);
+      } else if (typeof api.capabilities === 'function') {
+        const cap = await api.capabilities();
+        console.log('[ChromaChart] capabilities():', JSON.stringify(cap));
+        availability = cap?.available === 'readily'        ? 'available'
+                     : cap?.available === 'after-download' ? 'downloadable'
+                     : 'unavailable';
+      } else {
+        this._aiError = 'API has no availability() or capabilities() method';
         return false;
       }
 
-      const cap = await window.ai.languageModel.capabilities?.();
-      console.log('[ChromaChart] capabilities:', JSON.stringify(cap));
-
-      if (!cap) {
-        this._aiError = 'capabilities() returned null — API may not be active';
-        console.warn('[ChromaChart]', this._aiError);
-        return false;
-      }
-      if (cap.available === 'no') {
+      if (availability === 'unavailable') {
         this._aiError = 'Model not supported on this device';
-        console.warn('[ChromaChart]', this._aiError);
         return false;
       }
-      if (cap.available === 'after-download') {
-        this._aiError = `Model is still downloading — go to chrome://components and update "Optimization Guide On Device Model", then reload`;
-        console.warn('[ChromaChart]', this._aiError);
+      if (availability === 'downloading' || availability === 'downloadable') {
+        this._aiError = 'Model is downloading — go to chrome://components, update "Optimization Guide On Device Model", then reload';
         return false;
       }
-      if (cap.available !== 'readily') {
-        this._aiError = `Unexpected capabilities.available value: "${cap.available}"`;
-        console.warn('[ChromaChart]', this._aiError);
+      if (availability !== 'available' && availability !== 'readily') {
+        this._aiError = `Unexpected availability="${availability}"`;
         return false;
       }
 
-      // 'readily' — verify session creation actually succeeds
-      console.log('[ChromaChart] capabilities OK, probing session creation…');
-      const probe = await window.ai.languageModel.create({ systemPrompt: '' });
+      console.log('[ChromaChart] availability OK, probing session creation…');
+      const probe = await api.create({ systemPrompt: '' });
       probe.destroy();
-      console.log('[ChromaChart] probe session created and destroyed — AI ready ✓');
+      console.log('[ChromaChart] probe session OK — AI ready ✓');
+
+      this._aiAPI = api;
       return true;
 
     } catch (err) {

@@ -53,12 +53,14 @@ ChartSpec:`;
   }
 
   async queryAI(userQuery) {
-    if (!window?.ai?.languageModel) throw new Error('Chrome Prompt API not available');
+    // Resolve whichever Chrome AI API shape is exposed
+    const api = window.LanguageModel?.create     ? window.LanguageModel
+              : window.ai?.languageModel?.create ? window.ai.languageModel
+              : window.ai?.assistant?.create     ? window.ai.assistant
+              : null;
+    if (!api) throw new Error('Chrome AI API not available — falling back to NLP parser');
 
-    const capabilities = await window.ai.languageModel.capabilities();
-    if (capabilities.available === 'no') throw new Error('Gemini Nano not available on this device');
-
-    const session = await window.ai.languageModel.create({
+    const session = await api.create({
       systemPrompt: 'You are a chart configuration engine. Always return only valid JSON, nothing else.'
     });
 

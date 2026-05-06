@@ -98,26 +98,68 @@ export class ChromaChart {
   get schema()   { return this._engine.schema; }
   get rowCount() { return this._engine.rowCount; }
 
-  // Returns { ready: bool, status: 'ready'|'downloading'|'unavailable'|'error', detail: string }
+  // Detect which Chrome AI API shape is exposed.
+  // - Newest (Chrome 138+):    window.LanguageModel             — has .availability() + .create()
+  // - Older (Chrome ~127–137): window.ai.languageModel          — has .capabilities() + .create()
+  // - Even older Origin Trial: window.ai.assistant              — same shape as languageModel
+  // Returns the API object or null.
+  static _resolveAPI() {
+    if (typeof window === 'undefined') return null;
+    if (window.LanguageModel?.create)        return { api: window.LanguageModel,    shape: 'new' };
+    if (window.ai?.languageModel?.create)    return { api: window.ai.languageModel, shape: 'legacy' };
+    if (window.ai?.assistant?.create)        return { api: window.ai.assistant,     shape: 'legacy' };
+    return null;
+  }
+
+  // Returns { ready, status, detail, shape } — tries every known API shape.
   static async aiStatus() {
+    const found = ChromaChart._resolveAPI();
+    if (!found) {
+      return {
+        ready: false, status: 'unavailable',
+        detail: 'No Chrome AI API found. Need Chrome 138+ Canary/Dev with chrome://flags/#prompt-api-for-gemini-nano enabled, or window.LanguageModel exposed.',
+        shape: null
+      };
+    }
+
+    const { api, shape } = found;
+    console.log(`[ChromaChart] AI API found, shape="${shape}"`);
+
     try {
-      if (!window?.ai?.languageModel) return { ready: false, status: 'unavailable', detail: 'window.ai.languageModel not found' };
-      const cap = await window.ai.languageModel.capabilities?.();
-      console.log('[ChromaChart] AI capabilities:', cap);
-      if (!cap) return { ready: false, status: 'unavailable', detail: 'capabilities() returned nothing' };
-      if (cap.available === 'no')             return { ready: false, status: 'unavailable', detail: 'Model not supported on this device' };
-      if (cap.available === 'after-download') return { ready: false, status: 'downloading', detail: 'Model downloading — check chrome://components' };
-      if (cap.available !== 'readily')        return { ready: false, status: 'unavailable', detail: `Unexpected status: ${cap.available}` };
-      // 'readily' — confirm session creation actually works
-      try {
-        const probe = await window.ai.languageModel.create({ systemPrompt: '' });
-        probe.destroy();
-        return { ready: true, status: 'ready', detail: 'Gemini Nano ready' };
-      } catch (e) {
-        return { ready: false, status: 'error', detail: `Session creation failed: ${e.message}` };
+      // Newer API: availability() returns 'available' | 'downloadable' | 'downloading' | 'unavailable'
+      // Older API: capabilities() returns { available: 'readily' | 'after-download' | 'no' }
+      let availability;
+      if (typeof api.availability === 'function') {
+        availability = await api.availability();
+        console.log('[ChromaChart] availability():', availability);
+      } else if (typeof api.capabilities === 'function') {
+        const cap = await api.capabilities();
+        console.log('[ChromaChart] capabilities():', cap);
+        availability = cap?.available === 'readily'        ? 'available'
+                     : cap?.available === 'after-download' ? 'downloadable'
+                     : 'unavailable';
+      } else {
+        return { ready: false, status: 'error', detail: 'API object has no availability() or capabilities()', shape };
       }
+
+      if (availability === 'unavailable') {
+        return { ready: false, status: 'unavailable', detail: 'Model not supported on this device', shape };
+      }
+      if (availability === 'downloading' || availability === 'downloadable' || availability === 'after-download') {
+        return { ready: false, status: 'downloading', detail: 'Model downloading — chrome://components → "Optimization Guide On Device Model" → Check for update', shape };
+      }
+      if (availability !== 'available' && availability !== 'readily') {
+        return { ready: false, status: 'unavailable', detail: `Unexpected availability="${availability}"`, shape };
+      }
+
+      // Confirm a session can actually be created
+      const probe = await api.create({ systemPrompt: '' });
+      probe.destroy();
+      return { ready: true, status: 'ready', detail: `Gemini Nano ready (API shape: ${shape})`, shape };
+
     } catch (e) {
-      return { ready: false, status: 'error', detail: e.message };
+      console.error('[ChromaChart] aiStatus error:', e);
+      return { ready: false, status: 'error', detail: e.message, shape };
     }
   }
 
