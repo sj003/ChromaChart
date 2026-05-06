@@ -254,22 +254,30 @@
     #analysis-grid {
       flex: 1; overflow-y: auto;
       display: grid; grid-template-columns: 1fr 1fr;
+      grid-auto-rows: 320px;   /* fixed row height so all 4 cards are uniform */
       gap: 12px; align-content: start;
     }
     .analysis-card {
       background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
       display: flex; flex-direction: column; overflow: hidden;
+      min-height: 0;  /* let flex children shrink inside the fixed grid row */
     }
     .analysis-card-header {
-      padding: 10px 14px 0;
+      padding: 10px 14px 4px;
       display: flex; align-items: baseline; justify-content: space-between;
+      flex-shrink: 0;
     }
     .analysis-card-title { font-size: 13px; font-weight: 600; }
-    .analysis-card-q { font-size: 10px; color: var(--slate-6); }
-    .analysis-canvas-wrap { flex: 1; padding: 8px 14px; height: 200px; }
+    .analysis-card-q { font-size: 10px; color: var(--slate-6); max-width: 55%; text-align: right; }
+    .analysis-canvas-wrap {
+      flex: 1; padding: 4px 12px; min-height: 0;  /* critical: lets canvas shrink with flex */
+      position: relative;
+    }
+    .analysis-canvas-wrap canvas { position: absolute; inset: 4px 12px; }
     .analysis-insight {
-      font-size: 11px; color: var(--slate-6); line-height: 1.5;
-      padding: 8px 14px 12px; border-top: 1px solid var(--slate-3); background: var(--slate-1);
+      font-size: 11px; color: var(--slate-6); line-height: 1.5; flex-shrink: 0;
+      padding: 7px 14px 10px; border-top: 1px solid var(--slate-3); background: var(--slate-1);
+      max-height: 70px; overflow: hidden;
     }
     .analysis-insight strong { color: var(--slate-9); }
 

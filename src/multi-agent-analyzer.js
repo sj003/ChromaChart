@@ -1,18 +1,17 @@
 // Multi-agent analysis pipeline.
 //
-// Three specialized Gemini Nano sessions run sequentially, each with a narrow role:
-//   Pass 1 — Data Modeler:       profiles data, identifies patterns & relevant fields
-//   Pass 2 — Viz Expert:         receives profile, returns optimal chart specs
-//   Pass 3 — Orchestrator:       receives profile + viz plan + results → insights + summary
+// Pass 1 — Data Modeler:   infers topic match + which fields are useful
+// Pass 2 — Viz Expert:     receives ONLY the relevant fields, picks 4 chart specs
+// Pass 3 — Orchestrator:   receives ONLY actual result summaries, writes insights
 //
-// Each session is created fresh and destroyed immediately after its turn.
-// Outputs are structured JSON passed as plain text between sessions.
+// Each session gets the minimum context it needs — Gemini Nano has ~1 024 token input limit.
+// Sessions are created fresh and destroyed immediately after their turn.
 
 import { Analyzer } from './analyzer.js';
 
 export class MultiAgentAnalyzer {
   constructor(engine) {
-    this.engine  = engine;
+    this.engine   = engine;
     this._fallback = new Analyzer(engine);
   }
 
@@ -20,7 +19,7 @@ export class MultiAgentAnalyzer {
     const aiAvailable = await this._checkAI();
 
     if (!aiAvailable) {
-      onProgress({ agent: null, message: 'Running statistical analysis (Gemini Nano not available)…', step: 0, total: 1 });
+      onProgress({ agent: null, message: 'Gemini Nano session unavailable — running statistical analysis…', step: 0, total: 1 });
       const result = await this._fallback.analyze(topic, {
         onProgress: msg => onProgress({ agent: null, message: msg, step: 0, total: 1 })
       });
@@ -28,28 +27,24 @@ export class MultiAgentAnalyzer {
     }
 
     const agentLog = [];
-    const log = (agent, role, message) => {
-      agentLog.push({ agent, role, message });
-      onProgress({ agent, role, message, step: agentLog.length, total: 3 });
+    const log = (agent, message) => {
+      agentLog.push({ agent, message });
+      onProgress({ agent, message, step: agentLog.length, total: 6 });
     };
 
     try {
-      // Warm-up: verify we can actually create a session (not just check capabilities)
-      const testSession = await window.ai.languageModel.create({ systemPrompt: 'test' });
-      testSession.destroy();
-
       // ── Pass 1: Data Modeler ──────────────────────────────────────────────
-      log('data-modeler', 'Data Modeler', 'Profiling dataset and identifying relevant patterns…');
-      const dataProfile = await this._runDataModeler(topic);
-      log('data-modeler', 'Data Modeler', dataProfile._summary);
+      log('data-modeler', 'Profiling dataset fields and identifying topic match…');
+      const profile = await this._pass1_dataModeler(topic);
+      log('data-modeler', profile._summary || `Found "${profile.topicMatch}" in field "${profile.topicField}"`);
 
-      // ── Pass 2: Visualization Expert ──────────────────────────────────────
-      log('viz-expert', 'Visualization Expert', 'Reviewing data profile and selecting optimal chart types…');
-      const vizPlan = await this._runVizExpert(topic, dataProfile);
-      log('viz-expert', 'Visualization Expert', `Planned ${vizPlan.length} charts: ${vizPlan.map(v => v.chartType + ' (' + v.dimension + ')').join(', ')}`);
+      // ── Pass 2: Viz Expert ────────────────────────────────────────────────
+      log('viz-expert', 'Selecting optimal chart types for each dimension…');
+      const vizPlan = await this._pass2_vizExpert(topic, profile);
+      log('viz-expert', `Planned: ${vizPlan.map(v => `${v.dimension} (${v.spec.type})`).join(' · ')}`);
 
-      // ── Execute queries against the data engine ───────────────────────────
-      log('orchestrator', 'Orchestrator', 'Running queries against dataset…');
+      // ── Execute queries ───────────────────────────────────────────────────
+      log('orchestrator', 'Running data queries…');
       const analyses = vizPlan.map(item => ({
         title:    item.dimension,
         question: item.reason,
@@ -59,104 +54,80 @@ export class MultiAgentAnalyzer {
       }));
 
       // ── Pass 3: Orchestrator ──────────────────────────────────────────────
-      log('orchestrator', 'Orchestrator', 'Synthesizing results and writing insights…');
-      const synthesis = await this._runOrchestrator(topic, dataProfile, vizPlan, analyses);
-      log('orchestrator', 'Orchestrator', synthesis.headline);
+      log('orchestrator', 'Synthesizing results and writing insights…');
+      const synthesis = await this._pass3_orchestrator(topic, profile, analyses);
+      log('orchestrator', synthesis.headline || 'Analysis complete');
 
-      // Merge orchestrator insights into analyses
-      synthesis.insights?.forEach((ins, i) => {
-        if (analyses[i]) analyses[i].insight = ins;
-      });
+      synthesis.insights?.forEach((ins, i) => { if (analyses[i]) analyses[i].insight = ins; });
 
-      // Honour orchestrator's preferred ordering
+      // Honour suggested chart order
       let ordered = analyses;
-      if (Array.isArray(synthesis.chartOrder)) {
-        ordered = synthesis.chartOrder
-          .map(i => analyses[i])
-          .filter(Boolean);
-        // Append any extras not in the order list
-        analyses.forEach((a, i) => {
-          if (!synthesis.chartOrder.includes(i)) ordered.push(a);
-        });
+      if (Array.isArray(synthesis.chartOrder) && synthesis.chartOrder.length === analyses.length) {
+        ordered = synthesis.chartOrder.map(i => analyses[i]).filter(Boolean);
       }
 
-      return {
-        topic,
-        resolved:   dataProfile.topicMatch ? { field: dataProfile.topicField, value: dataProfile.topicMatch } : null,
-        analyses:   ordered,
-        summary:    synthesis.summary,
-        headline:   synthesis.headline,
-        aiPowered:  true,
-        agentLog
-      };
+      return { topic, resolved: profile.topicMatch ? { field: profile.topicField, value: profile.topicMatch } : null,
+        analyses: ordered, summary: synthesis.summary, headline: synthesis.headline,
+        aiPowered: true, agentLog };
 
     } catch (err) {
-      const reason = err?.message || String(err);
-      console.warn('[ChromaChart] Multi-agent pipeline failed:', reason);
-      // Show the actual error in the agent log so the user can see what happened
-      onProgress({ agent: null, message: `AI pipeline error: ${reason} — switching to statistical analysis`, step: 0, total: 1 });
+      const msg = err?.message || String(err);
+      console.warn('[ChromaChart] Multi-agent pipeline error:', msg);
+      log('orchestrator', `Pipeline error: ${msg} — switching to statistical analysis`);
 
-      const fallbackResult = await this._fallback.analyze(topic, {
-        onProgress: msg => onProgress({ agent: null, message: msg, step: 0, total: 1 })
+      const result = await this._fallback.analyze(topic, {
+        onProgress: m => onProgress({ agent: null, message: m, step: 0, total: 1 })
       });
-      return { ...fallbackResult, agentLog, aiPowered: false };
+      return { ...result, agentLog, aiPowered: false };
     }
   }
 
-  // ── Agent sessions ─────────────────────────────────────────────────────────
+  // ── Pass 1: Data Modeler ───────────────────────────────────────────────────
+  // Only sends: field names + types + cardinality + a few sample values per field.
+  // High-cardinality / free-text fields are excluded from samples to stay within token budget.
 
-  async _runDataModeler(topic) {
-    const schema    = this.engine.schema;
+  async _pass1_dataModeler(topic) {
+    const schema = this.engine.schema;
 
-    // Keep prompt small for Gemini Nano's limited context window.
-    // Exclude high-cardinality / free-text fields from samples.
-    const skipInSamples = new Set(
-      Object.entries(schema)
-        .filter(([, v]) => v.cardinality > 200 || v.type === 'string' && v.sample.some(s => s.length > 80))
-        .map(([k]) => k)
-    );
+    // Build a compact schema string: "field: type(cardinality) [v1, v2, v3]"
+    const schemaLines = Object.entries(schema).map(([k, v]) => {
+      const samples = v.cardinality <= 30
+        ? ` [${v.sample.slice(0, 4).map(s => String(s).slice(0, 25)).join(', ')}]`
+        : ` (${v.cardinality} unique values)`;
+      return `  ${k}: ${v.type}${samples}`;
+    }).join('\n');
 
-    const schemaStr = Object.entries(schema)
-      .map(([k, v]) => `"${k}": ${v.type}(${v.cardinality} unique)`)
-      .join(', ');
-
-    // Compact field samples — only low-cardinality fields, values truncated
-    const fieldSamples = Object.entries(schema)
-      .filter(([k, v]) => !skipInSamples.has(k) && v.cardinality <= 50)
-      .map(([k, v]) => `${k}: [${v.sample.slice(0, 3).map(s => String(s).slice(0, 30)).join(', ')}]`)
-      .join('\n');
-
-    const resolved  = this._resolve(topic);
-    const matchRows = resolved
+    const resolved = this._resolve(topic);
+    const matchCount = resolved
       ? this.engine.query({ x: { field: resolved.field }, y: { aggregate: 'count' }, filter: { [resolved.field]: resolved.value } }).rowCount
       : this.engine.rowCount;
 
     const session = await window.ai.languageModel.create({
-      systemPrompt: `You are a data modeling expert. Profile datasets to identify patterns and relevant fields. Respond with valid JSON only — no markdown, no explanation.`
+      systemPrompt: 'You are a data profiler. Respond with valid JSON only.'
     });
 
     try {
-      const prompt = `Schema: { ${schemaStr} }
-Total rows: ${this.engine.rowCount.toLocaleString()}
-Rows matching "${topic}": ${matchRows.toLocaleString()}
-Field samples:
-${fieldSamples}
+      const prompt =
+`Fields:
+${schemaLines}
 
-Profile for topic "${topic}". Return JSON:
+Total rows: ${this.engine.rowCount.toLocaleString()}
+Topic: "${topic}"
+
+Return JSON:
 {
-  "topicMatch": "exact matched value or null",
-  "topicField": "field name containing the topic",
+  "topicMatch": "exact value from data or null",
+  "topicField": "field name",
+  "matchCount": ${matchCount},
   "temporalField": "date/year field or null",
   "geoField": "location/country/region field or null",
-  "statusField": "status/state field or null",
-  "agencyField": "agency/department field or null",
-  "matchCount": ${matchRows},
-  "dataQuality": "good|fair|sparse",
-  "_summary": "1 sentence summary"
+  "lowCardFields": ["field with <15 unique values", "..."],
+  "midCardFields": ["field with 15-150 unique values", "..."],
+  "_summary": "one sentence"
 }`;
 
-      const raw = await session.prompt(prompt);
-      const json = raw.match(/\{[\s\S]*\}/)?.[0];
+      const raw  = await session.prompt(prompt);
+      const json = raw.match(/\{[\s\S]*?\}/)?.[0];
       if (!json) throw new Error('Data Modeler returned no JSON');
       return JSON.parse(json);
     } finally {
@@ -164,106 +135,86 @@ Profile for topic "${topic}". Return JSON:
     }
   }
 
-  async _runVizExpert(topic, profile) {
-    const schema    = this.engine.schema;
-    const fieldNames = Object.keys(schema).join(', ');
+  // ── Pass 2: Visualization Expert ───────────────────────────────────────────
+  // Receives ONLY the profile (no schema dump).
+  // Returns 4 chart specs using only the fields the Data Modeler identified.
 
-    // Send only the compact profile fields the viz expert actually needs
-    const compactProfile = {
-      topicMatch:    profile.topicMatch,
-      topicField:    profile.topicField,
-      temporalField: profile.temporalField,
-      geoField:      profile.geoField,
-      statusField:   profile.statusField,
-      agencyField:   profile.agencyField,
-      matchCount:    profile.matchCount,
-    };
+  async _pass2_vizExpert(topic, profile) {
+    const subjectFilter = profile.topicField && profile.topicMatch
+      ? `{"${profile.topicField}":"${profile.topicMatch}"}`
+      : '{}';
+
+    // Build a concise field menu for the viz expert
+    const fieldMenu = [
+      profile.temporalField && `${profile.temporalField} (date — use for line chart with granularity:month)`,
+      profile.geoField      && `${profile.geoField} (geography — use for bar chart)`,
+      ...(profile.lowCardFields  || []).map(f => `${f} (${this.engine.schema[f]?.cardinality} values — good for pie)`),
+      ...(profile.midCardFields  || []).map(f => `${f} (${this.engine.schema[f]?.cardinality} values — good for bar, limit:10)`)
+    ].filter(Boolean).join('\n');
 
     const session = await window.ai.languageModel.create({
-      systemPrompt: `You are a data visualization expert. Recommend optimal chart types for datasets. Always respond with valid JSON only.`
+      systemPrompt: 'You are a chart designer. Respond with valid JSON only.'
     });
 
     try {
-      const filter = profile.topicField && profile.topicMatch
-        ? `{ "${profile.topicField}": "${profile.topicMatch}" }`
-        : '{}';
+      const prompt =
+`Topic: "${topic}" (${profile.matchCount?.toLocaleString() ?? '?'} matching rows)
+Filter to apply to all charts: ${subjectFilter}
 
-      const prompt = `Topic: "${topic}"
-Profile: ${JSON.stringify(compactProfile)}
-Available fields (use EXACT names): ${fieldNames}
+Available fields:
+${fieldMenu}
 
-Return a JSON array of exactly 4 chart specs:
-[{
-  "dimension": "short title",
-  "chartType": "bar|line|pie",
-  "reason": "why this chart type",
-  "priority": 1,
-  "spec": {
-    "type": "bar|line|pie",
-    "title": "chart title",
-    "x": { "field": "EXACT field name", "label": "label", "granularity": "month" },
-    "y": { "field": null, "aggregate": "count", "label": "Count" },
-    "filter": ${filter},
-    "sort": "desc",
-    "limit": 10
-  }
-}]
+Design 4 charts. Return JSON array:
+[{"dimension":"title","reason":"why this type","spec":{"type":"bar|line|pie","title":"...","x":{"field":"EXACT name","label":"...","granularity":"month"},"y":{"field":null,"aggregate":"count","label":"Count"},"filter":${subjectFilter},"sort":"desc","limit":10}}]
 
-Rules: temporal→line(granularity:month), geo→bar, status/type→pie, 4th→most insightful remaining field.
-Only use field names from: ${fieldNames}`;
+Rules: 1 line chart (temporal), 1 bar chart (geo or mid-card), 1 pie (low-card), 1 bar (another field).
+Remove "granularity" key if field is not temporal.`;
 
       const raw  = await session.prompt(prompt);
-      const json = raw.match(/\[[\s\S]*\]/)?.[0];
+      const json = raw.match(/\[[\s\S]*?\]/)?.[0];
       if (!json) throw new Error('Viz Expert returned no JSON array');
 
       const plan = JSON.parse(json);
       return plan
         .filter(p => this._validateSpec(p.spec))
-        .sort((a, b) => (a.priority || 99) - (b.priority || 99))
         .slice(0, 4);
     } finally {
       session.destroy();
     }
   }
 
-  async _runOrchestrator(topic, profile, vizPlan, analyses) {
-    const resultsStr = analyses.map((a, i) =>
-      `Chart ${i + 1} — "${a.title}" (${a.spec.type}):\n` +
-      `  rows matched: ${a.result.rowCount.toLocaleString()}\n` +
-      `  top entries: ${a.result.labels.slice(0, 5).map((l, j) => `${l}=${a.result.values[j]?.toLocaleString()}`).join(', ')}`
-    ).join('\n\n');
+  // ── Pass 3: Orchestrator ───────────────────────────────────────────────────
+  // Receives ONLY a compact result summary (labels + values, no specs).
+  // Writes per-chart insights + headline + summary.
+
+  async _pass3_orchestrator(topic, profile, analyses) {
+    // Compact result summary — top 5 labels/values per chart only
+    const resultLines = analyses.map((a, i) =>
+      `${i + 1}. ${a.title}: ${a.result.rowCount.toLocaleString()} rows — ` +
+      a.result.labels.slice(0, 5).map((l, j) => `${l}=${a.result.values[j]?.toLocaleString()}`).join(', ')
+    ).join('\n');
 
     const session = await window.ai.languageModel.create({
-      systemPrompt: `You are a senior data analyst and storyteller. You synthesize multi-chart analysis results into clear, data-driven narratives. You highlight the most surprising findings and always back claims with specific numbers. Always respond with valid JSON only.`
+      systemPrompt: 'You are a data analyst. Write clear, specific insights backed by numbers. Respond with valid JSON only.'
     });
 
     try {
-      const prompt = `You are finalizing a data analysis for "${topic}".
+      const prompt =
+`Topic: "${topic}" | Total matching: ${profile.matchCount?.toLocaleString() ?? '?'}
 
-Data profile summary: ${profile._summary}
-Matching records: ${profile.matchCount?.toLocaleString() ?? 'unknown'} out of ${this.engine.rowCount.toLocaleString()} total
+Results:
+${resultLines}
 
-Query results:
-${resultsStr}
-
-Synthesize these results. Return JSON:
+Return JSON:
 {
-  "headline": "The single most important finding (1 sentence, include a specific number)",
-  "summary": "Executive summary: 2-3 sentences, include geography, trend, and resolution rate where available",
-  "insights": [
-    "1-2 sentence insight for chart 1 — be specific with numbers",
-    "1-2 sentence insight for chart 2",
-    "1-2 sentence insight for chart 3",
-    "1-2 sentence insight for chart 4"
-  ],
-  "chartOrder": [0, 1, 2, 3],
-  "highlightChart": 0
-}
-
-chartOrder should put the most compelling chart first.`;
+  "headline": "single most important finding with a specific number",
+  "summary": "2-3 sentences: scale, geography, resolution rate",
+  "insights": ["1-2 sentences per chart, specific numbers", "..."],
+  "chartOrder": [0,1,2,3]
+}`;
 
       const raw  = await session.prompt(prompt);
-      const json = raw.match(/\{[\s\S]*\}/)?.[0];
+      const json = raw.match(/\{[\s\S]*?\}/)?.[0];
       if (!json) throw new Error('Orchestrator returned no JSON');
       return JSON.parse(json);
     } finally {
@@ -275,36 +226,39 @@ chartOrder should put the most compelling chart first.`;
 
   async _checkAI() {
     try {
+      // Mirror exactly what ChromaChart.aiAvailable() does — all optional chaining
+      // so it never throws even if the API shape differs between Chrome versions.
       if (!window?.ai?.languageModel) return false;
-      const cap = await window.ai.languageModel.capabilities();
-      return cap.available !== 'no';
+      const cap = await window.ai.languageModel?.capabilities?.();
+      if (cap?.available === 'no') return false;
+      // Confirm we can actually open a session (capabilities alone is not enough)
+      const probe = await window.ai.languageModel.create({ systemPrompt: '' });
+      probe.destroy();
+      return true;
     } catch { return false; }
   }
 
   _resolve(topic) {
-    const complaintField = Object.keys(this.engine.schema).find(k =>
+    const field = Object.keys(this.engine.schema).find(k =>
       ['complaint_type', 'type', 'category', 'issue_type'].some(c => k.toLowerCase().includes(c))
     );
-    if (!complaintField) return null;
+    if (!field) return null;
 
     const cleaned = topic.toLowerCase()
-      .replace(/\banalyze?\b|\banalysis\b|\bcomplaint[s]?\b|\bissue[s]?\b/g, '')
-      .trim();
+      .replace(/\banalyze?\b|\banalysis\b|\bcomplaint[s]?\b|\bissue[s]?\b/g, '').trim();
 
-    const allValues = [...new Set(this.engine.rows.map(r => r[complaintField]).filter(Boolean))];
+    const allValues = [...new Set(this.engine.rows.map(r => r[field]).filter(Boolean))];
 
     const exact = allValues.find(v => v.toLowerCase() === cleaned);
-    if (exact) return { field: complaintField, value: exact };
+    if (exact) return { field, value: exact };
 
     const contains = allValues.filter(v => v.toLowerCase().includes(cleaned) || cleaned.includes(v.toLowerCase()));
-    if (contains.length > 0) { contains.sort((a, b) => a.length - b.length); return { field: complaintField, value: contains[0] }; }
+    if (contains.length > 0) { contains.sort((a, b) => a.length - b.length); return { field, value: contains[0] }; }
 
     const words  = cleaned.split(/\s+/).filter(w => w.length > 2);
-    const scored = allValues
-      .map(v => ({ v, score: words.filter(w => v.toLowerCase().includes(w)).length }))
-      .filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-
-    return scored.length > 0 ? { field: complaintField, value: scored[0].v } : null;
+    const scored = allValues.map(v => ({ v, score: words.filter(w => v.toLowerCase().includes(w)).length }))
+                            .filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+    return scored.length > 0 ? { field, value: scored[0].v } : null;
   }
 
   _validateSpec(spec) {
