@@ -64,11 +64,26 @@ export class ChromaChart {
     if (!this._engine.rowCount) throw new Error('No data loaded. Call loadURL(), loadFile(), or loadData() first.');
 
     let spec;
-    // Try on-device Chrome AI first; fall back to rules-based NLP
+
+    // Always try the local LLM first — it understands natural language intent
+    // (including exclusions, synonyms, complex phrasing) better than regex.
+    // Race against a 5-second timeout so simple queries stay fast.
     try {
-      spec = await this._compiler.queryAI(text);
+      const aiResult = this._compiler.queryAI(text);
+      const timeout  = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI timeout')), 5000)
+      );
+      spec = await Promise.race([aiResult, timeout]);
     } catch {
       spec = this._parser.parse(text);
+    }
+
+    // Safety net: if the query has exclusion keywords but the AI didn't produce
+    // an `exclude` field (small model limitation), apply NLP exclusion on top.
+    // We only do this when `exclude` is absent — never overwrite a valid AI exclusion.
+    const hasExclusion = /\b(ignoring|excluding|except|without|not\s+including)\b/i.test(text);
+    if (hasExclusion && !spec.exclude) {
+      this._parser._applyExclusions(text.toLowerCase().trim(), spec);
     }
 
     return this._execute(spec);

@@ -227,10 +227,30 @@
     .agent-name { font-size: 10px; font-weight: 600; color: var(--slate-6); text-align: center; }
     .agent-arrow { font-size: 14px; color: var(--slate-3); flex-shrink: 0; margin: 0 -4px; padding-bottom: 16px; }
 
+    /* Thinking ticker — single live "current thought" line */
+    #thinking-ticker {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 0 2px; border-top: 1px solid var(--slate-3); margin-top: 4px;
+    }
+    .ticker-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: var(--brand);
+      animation: tickerPulse 1.4s ease-in-out infinite;
+    }
+    #ticker-text {
+      font-size: 12px; color: var(--slate-6);
+      transition: opacity .2s ease;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    @keyframes tickerPulse {
+      0%, 100% { opacity: 1;    transform: scale(1);    }
+      50%       { opacity: 0.3; transform: scale(0.75); }
+    }
+
     /* Agent message log */
     #agent-log {
       border-top: 1px solid var(--slate-3); padding-top: 10px;
-      max-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+      max-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
     }
     .log-entry {
       display: flex; align-items: flex-start; gap: 8px;
@@ -469,7 +489,12 @@
             <div class="agent-name">Orches-<br>trator</div>
           </div>
         </div>
-        <!-- Live message log -->
+        <!-- Live ticker: shows only the most recent agent message -->
+        <div id="thinking-ticker">
+          <span class="ticker-dot"></span>
+          <span id="ticker-text"></span>
+        </div>
+        <!-- Full message log (scrollable history) -->
         <div id="agent-log"></div>
         <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:4%"></div></div>
       </div>
@@ -596,6 +621,28 @@
     'orchestrator': { nodeId: 'node-orchestrator',  badgeClass: 'badge-orchestrator', label: 'Orchestrator' },
   };
 
+  // ── Thinking ticker ────────────────────────────────────────────────────────
+  // Always shows the most recent agent message. Fades in/out on each update.
+
+  function startTicker() {
+    document.getElementById('thinking-ticker').style.display = 'flex';
+    _setTickerText('Initializing agents…');
+  }
+
+  function pushTickerMessage(text) {
+    _setTickerText(text);
+  }
+
+  function _setTickerText(text) {
+    const span = document.getElementById('ticker-text');
+    span.style.opacity = '0';
+    setTimeout(() => { span.textContent = text; span.style.opacity = '1'; }, 200);
+  }
+
+  function stopTicker() {
+    document.getElementById('thinking-ticker').style.display = 'none';
+  }
+
   function resetAgentUI() {
     Object.values(AGENT_META).forEach(({ nodeId }) => {
       const n = document.getElementById(nodeId);
@@ -603,6 +650,7 @@
     });
     document.getElementById('agent-log').innerHTML = '';
     document.getElementById('progress-bar').style.width = '4%';
+    stopTicker();
   }
 
   function appendAgentLog(agent, message) {
@@ -642,6 +690,7 @@
     progress.style.display = 'block';
     document.getElementById('ai-powered-tag').style.display = 'none';
     resetAgentUI();
+    startTicker();
 
     // Pass counts drive the progress bar: 3 AI passes + 1 for rendering
     const STEPS = 7;
@@ -654,6 +703,7 @@
     const onProgress = ({ agent, message }) => {
       if (agent) advanceAgentNode(agent);
       appendAgentLog(agent, message);
+      pushTickerMessage(message);
       tick();
     };
 
@@ -665,6 +715,7 @@
       const result = await chart.analyze(text, { onProgress });
 
       // Mark all nodes done
+      stopTicker();
       Object.values(AGENT_META).forEach(({ nodeId }) => {
         const n = document.getElementById(nodeId);
         n.classList.remove('active');
@@ -688,6 +739,7 @@
       });
 
     } catch (err) {
+      stopTicker();
       progress.style.display = 'none';
       toast(err.message, true);
       showView('chart');

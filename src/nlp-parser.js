@@ -82,21 +82,31 @@ export class NLPParser {
 
   _applyExclusions(q, spec) {
     // Detect: "ignoring X", "excluding X", "except X", "without X", "not including X"
-    const match = q.match(/(?:ignoring|excluding|except(?:\s+for)?|without|not\s+including)\s+(.+?)(?:\s+(?:and|or)\s+\w|$)/i);
+    // Greedy capture to end-of-string so we collect ALL exclusion terms including
+    // multi-part phrases like "without noise and parking related issues".
+    const match = q.match(/\b(?:ignoring|excluding|except(?:\s+for)?|without|not\s+including)\s+(.+)/i);
     if (!match) return;
 
-    // Extract meaningful keywords — strip filler words
-    const stopWords = new Set(['related', 'issues', 'like', 'such', 'as', 'and', 'or', 'the', 'a', 'an', 'type', 'types', 'complaints', 'complaint']);
+    const stopWords = new Set([
+      'related', 'issues', 'issue', 'like', 'such', 'as', 'and', 'or',
+      'the', 'a', 'an', 'type', 'types', 'complaints', 'complaint',
+      'problems', 'problem', 'things', 'stuff', 'other', 'any'
+    ]);
+
+    // Split on "and"/"or"/comma so "noise and water" → ["noise","water"]
     const keywords = match[1]
-      .split(/[\s,]+/)
-      .map(w => w.replace(/[^a-z0-9]/gi, ''))
-      .filter(w => w.length > 2 && !stopWords.has(w));
+      .split(/\s+(?:and|or)\s+|[,;]+\s*/)
+      .flatMap(segment =>
+        segment.split(/\s+/)
+          .map(w => w.replace(/[^a-z0-9]/gi, ''))
+          .filter(w => w.length > 2 && !stopWords.has(w))
+      );
 
     if (!keywords.length) return;
 
     const field = this._find(['complaint_type', 'type', 'category', 'issue_type']) || spec.x.field;
     spec.exclude = spec.exclude || {};
-    spec.exclude[field] = keywords;
+    spec.exclude[field] = [...new Set(keywords)]; // deduplicate
   }
 
   _label(field) {

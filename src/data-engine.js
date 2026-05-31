@@ -72,7 +72,6 @@ export class DataEngine {
 
   query(spec) {
     let rows = [...this.rows];
-
     // Inclusion filter (exact match or array of exact matches)
     if (spec.filter) {
       for (const [field, value] of Object.entries(spec.filter)) {

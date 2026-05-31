@@ -37,6 +37,7 @@ ChartSpec JSON format:
     "label": "axis label"
   },
   "filter": {},
+  "exclude": {},
   "sort": "desc",
   "limit": null
 }
@@ -45,6 +46,7 @@ Rules:
 - "top N" queries: set sort "desc" and limit N
 - time-series queries: set x.granularity to "day", "month", or "year"; use line or area type
 - area/borough/region filter: set filter field to matching column
+- "ignoring/without/excluding X": set exclude: { "field": ["keyword1", "keyword2"] } for partial substring exclusion
 - default aggregate is "count" when no numeric measure is requested
 
 User query: "${userQuery}"
@@ -66,9 +68,12 @@ ChartSpec:`;
 
     try {
       const response = await session.prompt(this.build(userQuery));
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in AI response');
-      return JSON.parse(jsonMatch[0]);
+      console.log('[ChromaChart] single-chart AI raw response:', response);
+      const json = _extractBalanced(response, '{', '}');
+      if (!json) throw new Error('No JSON in AI response');
+      const spec = JSON.parse(json);
+      console.log('[ChromaChart] single-chart AI spec:', JSON.stringify(spec));
+      return spec;
     } finally {
       session.destroy();
     }
