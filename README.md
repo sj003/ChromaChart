@@ -18,6 +18,22 @@ ChromaChart explores what a charting library looks like when those constraints f
 
 ---
 
+## Why on-device AI is the right direction
+
+Running inference locally changes the economics and architecture of AI applications in a fundamental way. There is no API bill, no round-trip latency to a cloud endpoint, and no dependency on a network connection. More importantly, the data never leaves the user's machine — which matters enormously for any sensitive or proprietary dataset. Intelligence moves closer to where the data already lives.
+
+Small, distilled models like Gemini Nano — and the broader family of efficient models it belongs to — are increasingly capable of handling a wide range of everyday tasks: summarisation, classification, structured extraction, and light reasoning. They are not replacements for large frontier models, but for well-scoped, single-turn tasks like "turn this natural language query into a chart spec", they are surprisingly effective and getting better quickly.
+
+**Current limitations worth being honest about:**
+
+- **Context window.** Gemini Nano currently has a tight input limit (around 1 024 tokens depending on the device). This is why ChromaChart's multi-agent pipeline sends each agent only the minimum context it needs — compact schema, not raw CSV. As hardware improves and models are refined, this ceiling will rise, which directly expands what on-device pipelines can do.
+
+- **Model choice.** The Chrome Prompt API today exposes only Gemini Nano. There is no way to swap in a different model. One interesting path forward is a Chrome extension that bridges the browser's page context to a locally running model server (Ollama, LM Studio, etc.) — the extension would expose the same `window.LanguageModel` interface backed by whatever model the user has running on their machine. The technical challenges are real (the extension needs localhost access, the user needs a model server running), but the upside is significant: you get model-agnostic on-device AI without needing it baked into the browser. That collapses the dependency on any single vendor's built-in model while keeping all the privacy and cost benefits of local inference.
+
+The trajectory — faster hardware, smaller models, wider API surface — points toward on-device AI becoming a first-class browser primitive. ChromaChart is a small experiment in what that future looks like today.
+
+---
+
 ## Demo
 
 The repository ships with two real datasets and a self-contained demo page.
