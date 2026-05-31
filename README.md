@@ -39,6 +39,36 @@ The demo works in any modern Chrome — without Gemini Nano enabled it falls bac
 
 ---
 
+## Screenshots
+
+**Single chart — Top 10 complaint types (NYC 311, 20K rows)**
+
+![Single chart query](screenshots/01-single-chart.png)
+
+**Exclusion filter — natural language filtering**
+
+![Exclusion filter](screenshots/02-exclusion-filter.png)
+
+> *"Top 10 complaint types excluding parking issues"* — the AI and NLP parser cooperate to produce an `exclude` filter, removing any complaint type containing "parking" from the results.
+
+**Multi-agent pipeline — live progress during analysis**
+
+![Agent pipeline running](screenshots/03-agent-pipeline.png)
+
+> Three specialized Gemini Nano sessions run in sequence. Each agent node lights up as it works. The ticker line updates in real time with what the current agent is doing.
+
+**Deep analysis result — trend + geographic breakdown**
+
+![Analysis result charts 1](screenshots/04-analysis-result-1.png)
+
+**Deep analysis result — resolution status + agency breakdown**
+
+![Analysis result charts 2](screenshots/05-analysis-result-2.png)
+
+> *"Analyze blocked driveway"* triggers the full 3-pass pipeline. The Orchestrator grounds every insight in real query results — the headline, per-chart callouts, and chart ordering are all AI-generated from actual data.
+
+---
+
 ## Features
 
 - **Natural-language queries** — "Top 10 complaint types in Brooklyn", "Daily trend of issues", "Movies vs TV Shows"
